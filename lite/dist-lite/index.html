@@ -8,18 +8,18 @@
   <meta name="description" content="饥荒管理平台(DMP)，满足一键开服、玩家管理、房间管理、数据统计、定时任务等功能">
   <title>饥荒管理平台 DMP</title>
   <link rel="stylesheet" type="text/css" href="/loader.css" />
-  <script type="module" crossorigin src="/assets/index-CrfkfsZ8.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/_plugin-vue_export-helper-5mGbvlCz.js">
-  <link rel="modulepreload" crossorigin href="/assets/axios-DIpShK05.js">
-  <link rel="modulepreload" crossorigin href="/assets/VImg-CUcylIu_.js">
-  <link rel="modulepreload" crossorigin href="/assets/scopeId-DrSb3BQd.js">
-  <link rel="modulepreload" crossorigin href="/assets/display-08EoOIXr.js">
-  <link rel="modulepreload" crossorigin href="/assets/VOverlay-4M2pxjNL.js">
-  <link rel="modulepreload" crossorigin href="/assets/VAvatar-BkyhP3cY.js">
+  <script type="module" crossorigin src="/assets/index-4XujA01s.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/_plugin-vue_export-helper-BfK4Pnnj.js">
+  <link rel="modulepreload" crossorigin href="/assets/axios-DJBK9yeo.js">
+  <link rel="modulepreload" crossorigin href="/assets/VImg-Bj0A2H-v.js">
+  <link rel="modulepreload" crossorigin href="/assets/scopeId-D-FXgHGz.js">
+  <link rel="modulepreload" crossorigin href="/assets/display-1GjI19xz.js">
+  <link rel="modulepreload" crossorigin href="/assets/VOverlay-DoOtp3Pn.js">
+  <link rel="modulepreload" crossorigin href="/assets/VAvatar-DhP3YQyW.js">
   <link rel="stylesheet" crossorigin href="/assets/VImg-BH5AtLaC.css">
   <link rel="stylesheet" crossorigin href="/assets/VOverlay-YfTteNzy.css">
   <link rel="stylesheet" crossorigin href="/assets/VAvatar-C_t5T45P.css">
-  <link rel="stylesheet" crossorigin href="/assets/index-C1NjtLIU.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-BIgHc-Mc.css">
 </head>
 
 <body>
@@ -39,10 +39,21 @@
         <div class="effect-3 effects"></div>
       </div>
     </div>
-  </div>
+  </div>
   <script>
     (function () {
-      const loaderColor = localStorage.getItem('materio-initial-loader-bg') || '#FFFFFF'
+      // 首屏 loading 的底色要与主题偏好保持一致，否则深色用户会先看到一屏白色
+      let savedTheme = ''
+
+      try {
+        savedTheme = JSON.parse(localStorage.getItem('dmp-global') || '{}').theme || ''
+      } catch (error) {
+        savedTheme = ''
+      }
+
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      const isDark = savedTheme === 'dark' || (savedTheme !== 'light' && systemDark)
+      const loaderColor = localStorage.getItem('materio-initial-loader-bg') || (isDark ? '#28243D' : '#FFFFFF')
       const primaryColor = localStorage.getItem('materio-initial-loader-color') || '#9155FD'
 
       document.documentElement.style.setProperty('--initial-loader-bg', loaderColor)

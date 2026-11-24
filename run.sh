@@ -39,10 +39,10 @@ USER=$(whoami)
 WORK_DIR=$(pwd)
 ExeFile="${WORK_DIR}/dmp"
 
-DMP_GITHUB_HOME_URL="https://github.com/miracleEverywhere/dst-management-platform-api"
-DMP_GITHUB_API_URL="https://api.github.com/repos/miracleEverywhere/dst-management-platform-api/releases/latest"
-SCRIPT_GITHUB="https://raw.githubusercontent.com/miracleEverywhere/dst-management-platform-api/master/run.sh"
-DMP_HOME="https://miraclesses.top/"
+DMP_GITHUB_HOME_URL="https://github.com/ljj13/dst-management-platform"
+DMP_GITHUB_API_URL="https://api.github.com/repos/ljj13/dst-management-platform/releases/latest"
+SCRIPT_GITHUB="https://raw.githubusercontent.com/ljj13/dst-management-platform/master/run.sh"
+DMP_HOME="https://github.com/ljj13/dst-management-platform"
 
 ACCELERATED_URL=""
 OS_NAME=$(uname -s)
@@ -273,6 +273,11 @@ function install_dmp() {
 		echo_red "获取最新版本信息失败，请检查网络连接"
 		exit 1
 	fi
+	release_tag=$(echo "$release_json" | jq -r '.tag_name // empty')
+	if [[ "$release_tag" != *"-foghub."* ]]; then
+		echo_red "拒绝安装：${release_tag:-未知版本} 不是 foghub 定制发布，避免覆盖定制版本"
+		exit 1
+	fi
 	github_url=$(echo "$release_json" | jq -r --arg name "$ARCHIVE_NAME" '.assets[] | select(.name == $name) | .browser_download_url')
 	if [[ -z "$github_url" ]]; then
 		echo_red "未找到下载文件，请检查网络连接"
@@ -382,8 +387,12 @@ function get_latest_version() {
 	check_jq
 	check_curl
 	LATEST_VERSION=$(curl -s -L ${DMP_GITHUB_API_URL} | jq -r .tag_name)
-	if [[ -z "$LATEST_VERSION" ]]; then
+	if [[ -z "$LATEST_VERSION" || "$LATEST_VERSION" == "null" ]]; then
 		echo_red "无法获取最新版本号，请检查网络连接或GitHub API"
+		exit 1
+	fi
+	if [[ "$LATEST_VERSION" != *"-foghub."* ]]; then
+		echo_red "最新发布 ($LATEST_VERSION) 不是 foghub 定制版本，已拒绝自动更新"
 		exit 1
 	fi
 }

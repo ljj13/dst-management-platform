@@ -1,0 +1,1 @@
+import{F as e,f as t}from"./_plugin-vue_export-helper-BfK4Pnnj.js";import n from"./WorldConfig-FTvJ_g1Q.js";var r={__name:`ground`,setup(r){return(r,i)=>(e(),t(n,{type:`ground`,title:`地面世界配置`}))}};export{r as default};

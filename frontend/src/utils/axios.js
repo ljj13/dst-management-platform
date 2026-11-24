@@ -1,0 +1,184 @@
+import axios from 'axios'
+import { showSnackbar } from '@/utils/snackbar'
+import { getToken } from "@/utils/tools"
+import useUserStore from "@store/user"
+import { ApiVersion } from "@/config"
+import useGlobalStore from "@store/global.js"
+
+
+// 创建一个 axios 实例
+const instance = axios.create({
+  baseURL: ApiVersion,
+  timeout: 600000, // 请求超时时间
+})
+
+// 请求拦截器：在请求发送之前添加 token
+instance.interceptors.request.use(
+  config => {
+    const token = getToken()
+
+    // 如果 token 存在，将其添加到请求头中
+    if (token) {
+      config.headers['X-DMP-TOKEN'] = token
+    }
+    const globalStore = useGlobalStore()
+
+    config.headers["X-I18n-Lang"] = globalStore.language
+
+    return config
+  },
+  error => {
+    // 请求错误处理
+    return Promise.reject(error)
+  },
+)
+
+// 业务错误：保留后端错误码，页面可以按 code 做针对性处理（例如 10061 引导配置 AI 模型）
+const buildBusinessError = data => {
+  const error = new Error(data?.message || "服务器偷偷跑到火星去玩了")
+
+  error.code = Number(data?.code ?? data?.status) || 0
+  error.data = data || {}
+
+  return error
+}
+
+// 响应拦截器：处理响应数据
+instance.interceptors.response.use(
+  async response => {
+    // 1. 如果是文件下载（responseType 为 blob），直接返回
+    if (response.config.responseType === 'blob') {
+      return response
+    }
+
+    const status = Number(response.data.status ?? response.data.code)
+    if (status === 200) {
+      // 服务器连接状态，非后端返回的status 或者 code
+      // 这里的后端可能是code OR status 和 message OR message需要看后端传递的是什么？
+      // console.log("200状态", status);
+
+      // 后端如果传回token，则使用新token
+      const newToken = response.headers['x-dmp-new-token'] || ''
+      if (newToken && newToken !== getToken()) {
+        const userStore = useUserStore()
+
+        userStore.token = newToken
+      }
+      
+      return response.data
+    } else if (status === 420) {
+      const userStore = useUserStore()
+
+      showSnackbar(response.data.message || "服务器偷偷跑到火星去玩了", 'error')
+      await userStore.clearStore()
+      if (window.location.hash !== '#/login') {
+        window.location.href = '/#/login'
+      }
+
+      return Promise.reject(response.data)
+    } else {
+      showSnackbar(response.data.message || "服务器偷偷跑到火星去玩了", 'error')
+
+      return Promise.reject(buildBusinessError(response.data)) // 异常对象保留 code/data，页面可按错误码处理
+    }
+  },
+  error => {
+    // 响应错误处理
+    error.data = error.data || {}
+    if (error.data.message) {
+      showSnackbar(error.status + " " + error.data.message, 'error')
+    } else {
+      error.data.message = "连接到服务器失败"
+      showSnackbar(error.data.message, 'error')
+    }
+
+    return Promise.reject(error) // 将错误返回给 try{} catch(){} 中进行捕获，就算不进行捕获，上方 res.data.status != 200也会抛出提示。
+  },
+)
+
+// 封装常用的请求方法
+const http = {
+  get: (url, params) => instance.get(url, { params }),
+  post: (url, data) => instance.post(url, data),
+  put: (url, data) => instance.put(url, data),
+  delete: (url, data) => instance.delete(url, {
+    headers: { 'Content-Type': 'application/json' },
+    data: data,
+  }),
+  download: async (url, params, filename) => {
+    try {
+      // 设置 responseType 为 blob
+      const response = await instance.get(url, {
+        params,
+        responseType: 'blob',
+      })
+
+      // 后端业务错误仍以 HTTP 200 + JSON 返回，这里需要还原成错误提示
+      if (response.data?.type?.includes('application/json')) {
+        const payload = JSON.parse(await response.data.text())
+        const status = Number(payload.status ?? payload.code)
+
+        if (status === 420) {
+          const userStore = useUserStore()
+
+          showSnackbar(payload.message || '登录已过期', 'error')
+          await userStore.clearStore()
+          if (window.location.hash !== '#/login') {
+            window.location.href = '/#/login'
+          }
+
+          throw payload
+        }
+
+        showSnackbar(payload.message || '下载文件失败', 'error')
+        throw payload
+      }
+
+      // 创建 Blob 对象
+      const blob = new Blob([response.data])
+
+      // 创建下载链接
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+
+      link.href = downloadUrl
+
+      // 设置文件名
+      if (filename) {
+        link.download = filename
+      } else {
+        // 尝试从响应头获取文件名
+        const contentDisposition = response.headers['content-disposition']
+        if (contentDisposition) {
+          // 优先使用 RFC 5987 的 filename*，服务端同时返回两个字段时避免拿到 ASCII 占位名
+          const encodedMatch = contentDisposition.match(/filename\*=utf-8''([^;]+)/i)
+          const plainMatch = contentDisposition.match(/filename="?([^";]+)"?/i)
+
+          if (encodedMatch && encodedMatch[1]) {
+            link.download = decodeURIComponent(encodedMatch[1])
+          } else if (plainMatch && plainMatch[1]) {
+            link.download = plainMatch[1]
+          }
+        } else {
+          // 如果没有文件名，使用默认文件名
+          link.download = 'download'
+        }
+      }
+
+      // 触发下载
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      // 释放 URL 对象
+      window.URL.revokeObjectURL(downloadUrl)
+
+      return response
+    } catch (error) {
+      console.error('下载文件失败:', error)
+      throw error
+    }
+  },
+}
+
+export default http

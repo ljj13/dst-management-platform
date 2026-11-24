@@ -1,0 +1,758 @@
+<template>
+  <template v-if="globalStore.gameVersion.local!==0">
+    <div class="fcc">
+      <v-text-field
+        v-model="reqForm.gameName"
+        :label="t('rooms.header.input.label')"
+        append-inner-icon="ri-search-line"
+        class="mr-4"
+        :loading="getRoomsLoading"
+        :placeholder="t('placeholders.rooms.search')"
+        @click:append-inner="getRooms"
+        @keyup.enter="getRooms"
+      />
+      <v-btn
+        v-if="!mobile"
+        :disabled="!userStore.userInfo.roomCreation&&userStore.userInfo.role!=='admin'"
+        prepend-icon="ri-add-line"
+        variant="elevated"
+        size="large"
+        class="mr-4"
+        @click="gotoGameBase"
+      >
+        {{ t('rooms.header.button.create') }}
+      </v-btn>
+      <v-btn
+        v-if="!mobile"
+        prepend-icon="ri-refresh-line"
+        color="default"
+        variant="elevated"
+        size="large"
+        @click="getRooms"
+      >
+        {{ t('rooms.header.button.refresh') }}
+      </v-btn>
+      <v-btn
+        v-if="mobile"
+        :disabled="!userStore.userInfo.roomCreation&&userStore.userInfo.role!=='admin'"
+        icon="ri-add-line"
+        class="mr-4"
+        @click="gotoGameBase"
+      />
+      <v-btn
+        v-if="mobile"
+        icon="ri-refresh-line"
+        color="default"
+        @click="getRooms"
+      />
+    </div>
+    <v-row class="mt-8">
+      <v-row class="mx-1">
+        <v-col
+          v-for="(room, index) in rooms"
+          :key="index"
+          :cols="mobile?12:6"
+        >
+          <v-card
+            :ref="el => { if (index === 0) cardRef = el }"
+            hover
+            variant="flat"
+            height="300px"
+          >
+            <v-card-title>
+              <div class="fcb">
+                <div class="fcc">
+                  <v-chip color="primary">
+                    {{ truncateString(room.gameName, mobile?8:15) }}
+                  </v-chip>
+                  <v-chip
+                    v-tooltip="room.status?t('rooms.card.success.header.title.activatedTip'):t('rooms.card.success.header.title.deactivatedTip')"
+                    :color="room.status?'success':'warning'"
+                    class="ml-4"
+                  >
+                    {{ room.status?t('rooms.card.success.header.title.activated'):t('rooms.card.success.header.title.deactivated') }}
+                  </v-chip>
+                  <v-icon
+                    v-if="globalStore.room.id===room.id"
+                    icon="ri-crosshair-2-line"
+                    color="info"
+                    class="ml-4"
+                  />
+                </div>
+                <v-menu>
+                  <template #activator="{ props }">
+                    <v-btn
+                      v-bind="props"
+                      :disabled="getRoomsLoading"
+                      :loading="activateLoading||deactivateLoading"
+                      color="primary"
+                      icon="ri-more-2-line"
+                    />
+                  </template>
+                  <v-list>
+                    <v-list-item
+                      class="text-success"
+                      @click="gotoDashboard(room)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-checkbox-circle-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('rooms.card.success.header.menu.select') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-success"
+                      :disabled="room.status"
+                      @click="handleAction('activate', room)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-play-large-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('rooms.card.success.header.menu.activate') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-warning"
+                      :disabled="!room.status"
+                      @click="handleAction('deactivate', room)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-stop-large-line"
+                          color="warning"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('rooms.card.success.header.menu.deactivate') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-primary"
+                      :disabled="room.gameName===''"
+                      @click="openFavorite(room)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-bookmark-3-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('rooms.card.success.header.menu.favorite') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-error"
+                      :disabled="userStore.userInfo.role!=='admin'"
+                      @click="handleAction('delete', room)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-delete-bin-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('platform.rooms.actions.delete') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-primary"
+                      @click="generateGameInfo(room)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-file-copy-2-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('rooms.card.success.header.menu.copy') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                  </v-list>
+                </v-menu>
+              </div>
+            </v-card-title>
+            <v-card-text v-ripple>
+              <div
+                v-if="room.gameName!==''"
+                class="mt-4"
+                @click="selectRoom(room)"
+              >
+                <v-row>
+                  <v-col :cols="mobile?12:6">
+                    <v-row>
+                      <v-col cols="6">
+                        <span>
+                          {{ t('rooms.card.success.text.left.gameMode') }}
+                        </span>
+                      </v-col>
+                      <v-col cols="6">
+                        <v-chip
+                          color="info"
+                          label
+                        >
+                          {{ t(`game.base.step1.gameMode.modes.${room.gameMode}`) }}
+                        </v-chip>
+                      </v-col>
+                    </v-row>
+                    <v-row>
+                      <v-col cols="6">
+                        <span>
+                          {{ t('rooms.card.success.text.left.worldNum') }}
+                        </span>
+                      </v-col>
+                      <v-col cols="6">
+                        <v-chip
+                          color="info"
+                          label
+                        >
+                          {{ room.worlds.length }}
+                        </v-chip>
+                      </v-col>
+                    </v-row>
+                    <v-row>
+                      <v-col cols="6">
+                        <span>
+                          {{ t('rooms.card.success.text.left.modNum') }}
+                        </span>
+                      </v-col>
+                      <v-col cols="6">
+                        <v-chip
+                          color="info"
+                          label
+                        >
+                          {{ room.modInOne?parseModLua(room.modData).length:parseModLua(room.worlds[0].modData).length }}
+                        </v-chip>
+                      </v-col>
+                    </v-row>
+                    <v-row>
+                      <v-col cols="6">
+                        <span>
+                          {{ t('rooms.card.success.text.left.playerNum') }}
+                        </span>
+                      </v-col>
+                      <v-col cols="6">
+                        <v-chip
+                          color="info"
+                          label
+                          @click.stop="() => {}"
+                        >
+                          <v-tooltip
+                            v-if="getCurrentPlayersNum(room.players)!==0"
+                            activator="parent"
+                          >
+                            {{ getCurrentPlayersNickname(room.players) }}
+                          </v-tooltip>
+                          ({{ getCurrentPlayersNum(room.players) }}/{{ room.maxPlayer }})
+                        </v-chip>
+                      </v-col>
+                    </v-row>
+                  </v-col>
+                  <v-col
+                    v-if="!mobile"
+                    :cols="mobile?12:6"
+                  >
+                    <v-card
+                      :height="240"
+                      variant="flat"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          color="primary"
+                          class="me-8"
+                          icon="ri-line-chart-line"
+                          size="48"
+                        />
+                      </template>
+                      <template #title>
+                        <div class="text-caption text-grey">
+                          {{ t('rooms.card.success.text.right.chartTitle') }}
+                        </div>
+                        <span class="text-h3 font-weight-black">
+                          <count-to
+                            :duration="4000"
+                            :end-val="Math.max(...generatePlayerList(room.players))"
+                            :start-val="0"
+                          />
+                        </span>
+                        <strong>{{ t('rooms.card.success.text.right.unit') }}</strong>
+                      </template>
+                      <v-sheet color="transparent">
+                        <v-sparkline
+                          :width="mobile?cardWidth:(cardWidth/2)"
+                          :gradient="['#1feaea']"
+                          :line-width="3"
+                          :model-value="generatePlayerList(room.players)"
+                          smooth
+                          padding="8"
+                          stroke-linecap="round"
+                          auto-draw
+                        />
+                      </v-sheet>
+                    </v-card>
+                  </v-col>
+                </v-row>
+              </div>
+
+              <div v-else>
+                <result
+                  type="warning"
+                  :height="mobile?600:300"
+                  :title="t('rooms.card.warning.title')"
+                  :sub-title="t('rooms.card.warning.subTitle')"
+                />
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+    </v-row>
+    <v-pagination
+      v-if="total > reqForm.pageSize"
+      v-model="reqForm.page"
+      :length="Math.max(1, Math.ceil(total/reqForm.pageSize))"
+      class="mt-8"
+      @update:model-value="getRooms"
+    />
+    <div v-if="rooms.length===0&&reqForm.gameName!==''">
+      <result
+        type="warning"
+        :height="calculateContainerSize() - 72"
+        :title="t('rooms.result.noResult.title')"
+        :sub-title="t('rooms.result.noResult.subTitle')"
+      />
+    </div>
+    <div v-if="rooms.length===0&&reqForm.gameName===''">
+      <result
+        type="warning"
+        :height="calculateContainerSize() - 72"
+        :title="t('rooms.result.noRoom.title')"
+        :sub-title="t('rooms.result.noRoom.subTitle')"
+      />
+    </div>
+  </template>
+  <template v-else>
+    <result
+      v-if="userStore.userInfo.role==='admin'"
+      :title="t('global.noGame.title')"
+      :sub-title="t('global.noGame.subTitle')"
+      :height="calculateContainerSize()"
+      type="error"
+    >
+      <v-btn
+        to="/install"
+        class="mt-4"
+      >
+        {{ t('global.noGame.button') }}
+      </v-btn>
+    </result>
+    <result
+      v-else
+      :title="t('global.noGameNoAdmin.title')"
+      :sub-title="t('global.noGameNoAdmin.subTitle')"
+      :height="calculateContainerSize()"
+      type="error"
+    />
+  </template>
+  <confirm-box
+    v-model="confirmVisible"
+    type="warning"
+    :title="t('global.confirm.title')"
+    :content="t('global.confirm.content')"
+    :confirm-text="t('global.confirm.confirm')"
+    :cancel-text="t('global.confirm.cancel')"
+    :confirm-loading="deleteRoomLoading"
+    @confirm="deleteRoom"
+    @cancel="confirmVisible=false"
+  />
+  <v-dialog
+    v-model="favoriteVisible"
+    max-width="460"
+    persistent
+  >
+    <v-card :title="t('game.favorite.save.title')">
+      <v-card-text>
+        <v-text-field
+          :model-value="favoriteRoom?.gameName"
+          :label="t('game.favorite.save.gameName')"
+          readonly
+          variant="outlined"
+          density="compact"
+          :placeholder="t('game.favorite.save.gameName')"
+        />
+        <v-text-field
+          v-model="favoriteForm.remark"
+          :label="t('game.favorite.save.remark')"
+          :placeholder="t('game.favorite.save.remarkPlaceholder')"
+          maxlength="100"
+          persistent-placeholder
+          counter
+          class="mt-4"
+        />
+        <div class="text-caption text-medium-emphasis">
+          {{ t('game.favorite.save.tip') }}
+        </div>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          @click="favoriteVisible=false"
+        >
+          {{ t('game.favorite.cancel') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          :loading="favoriteLoading"
+          @click="createFavorite"
+        >
+          {{ t('game.favorite.confirm') }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<script setup>
+import roomApi from "@/api/room"
+import { useDisplay } from "vuetify"
+import { CountTo } from "vue3-count-to"
+import useUserStore from "@store/user"
+import useGlobalStore from "@store/global"
+import { useI18n } from "vue-i18n"
+import { debounce, parseModLua, truncateString } from "@/utils/tools"
+import { showSnackbar } from "@/utils/snackbar"
+import { useRouter } from "vue-router"
+import eventBus from '@/utils/eventBus'
+import modApi from "@/api/mod.js"
+import dashboardApi from "@/api/dashboard.js"
+import { sleep } from "@antfu/utils"
+
+
+const { mobile } = useDisplay()
+const { t } = useI18n()
+const router = useRouter()
+const userStore = useUserStore()
+const globalStore = useGlobalStore()
+
+const windowHeight = ref(window.innerHeight)
+
+const calculateCardSize = () => {
+  // 64(navbar) + 48(margin) + 44(pagination) + 24 * 2(card margins) = 204
+  const usedHeight = 204
+  const cardHeight = 300
+  
+  return Math.max(2, Math.floor((windowHeight.value - usedHeight) / cardHeight) * 2)
+}
+
+const reqForm = ref({
+  gameName: '',
+  page: 1,
+  pageSize: 0,
+})
+
+const rooms = ref([])
+const total = ref(0)
+const getRoomsLoading = ref(false)
+
+const getRooms = async () => {
+  getRoomsLoading.value = true
+
+  const response = await roomApi.list.get(reqForm.value)
+
+  rooms.value = response.data.rows || []
+
+  if (rooms.value.length === 0) {
+    if (reqForm.value.page > 1) {
+      reqForm.value.page--
+
+      return getRooms()
+    }
+  }
+
+  total.value = response.data.total
+  getRoomsLoading.value = false
+}
+
+const favoriteVisible = ref(false)
+const favoriteLoading = ref(false)
+const favoriteRoom = ref(null)
+
+const favoriteForm = ref({
+  remark: '',
+})
+
+const openFavorite = room => {
+  favoriteRoom.value = room
+  favoriteForm.value.remark = ''
+  favoriteVisible.value = true
+}
+
+const createFavorite = () => {
+  favoriteLoading.value = true
+
+  roomApi.favorite.base.post({
+    roomID: favoriteRoom.value.id,
+    remark: favoriteForm.value.remark,
+  }).then(response => {
+    favoriteVisible.value = false
+    showSnackbar(response.message)
+  }).finally(() => {
+    favoriteLoading.value = false
+  })
+}
+
+const gotoGameBase = async () => {
+  globalStore.room = {
+    id: 0,
+    gameName: '',
+  }
+  toggleMenu()
+  await router.push('/game/base')
+}
+
+const toggleMenu = () => {
+  eventBus.emit('toggleMenu', 3)
+}
+
+const selectRoom = async room => {
+  globalStore.room.id = room.id
+  globalStore.room.gameName = room.gameName
+  await sleep(200)
+  await gotoDashboard(room)
+}
+
+const gotoDashboard = async room => {
+  globalStore.room.id = room.id
+  globalStore.room.gameName = room.gameName
+  await router.push('/dashboard')
+}
+
+const generatePlayerList = players => {
+  if (players.length === 0) {
+    return [0, 0]
+  }
+  const pc = []
+  for (let p of players) {
+    pc.push(p.playerInfo?.length || 0)
+  }
+
+  return pc
+}
+
+const handleAction = (actionType, row) => {
+  switch (actionType) {
+    case 'activate':
+      activate(row)
+      break
+    case 'deactivate':
+      deactivate(row)
+      break
+    case 'delete':
+      deleteRoomID.value = row.id
+      confirmVisible.value = true
+      break
+  }
+}
+
+const activateLoading = ref(false)
+
+const activate = row => {
+  activateLoading.value = true
+
+  const reqForm = {
+    roomID: row.id,
+  }
+
+  roomApi.activate.post(reqForm).then(response => {
+    showSnackbar(response.message)
+    getRooms()
+  }).finally(() => {
+    activateLoading.value = false
+  })
+}
+
+const deactivateLoading = ref(false)
+
+const deactivate = row => {
+  deactivateLoading.value = true
+
+  const reqForm = {
+    roomID: row.id,
+  }
+
+  roomApi.deactivate.post(reqForm).then(response => {
+    showSnackbar(response.message)
+    getRooms()
+  }).finally(() => {
+    deactivateLoading.value = false
+  })
+}
+
+const deleteRoomLoading = ref(false)
+const deleteRoomID = ref(0)
+const confirmVisible = ref(false)
+
+const deleteRoom = () => {
+  deleteRoomLoading.value = true
+
+  const reqForm = {
+    roomID: deleteRoomID.value,
+  }
+
+  roomApi.base.delete(reqForm).then(response => {
+    confirmVisible.value = false
+    showSnackbar(response.message)
+    getRooms()
+    globalStore.deleteRoom(deleteRoomID.value)
+  }).finally(() => {
+    deleteRoomLoading.value = false
+  })
+}
+
+const getCurrentPlayersNum = players => {
+  if (players.length === 0) {
+    return 0
+  }
+
+  const last = players.at(-1)?.playerInfo || []
+
+  return last.length
+}
+
+const getCurrentPlayersNickname = players => {
+  if (players.length === 0) {
+    return ''
+  }
+
+  const last = players.at(-1)?.playerInfo || []
+
+  return last.map(user => user.nickname).join(', ')
+}
+
+const cardRef = ref()
+const cardWidth = ref(0)
+
+const calculateContainerSize = () => {
+  // 64(navbar) + 72(step header) + 54(step action) + 24(card margins) = 304
+  const other = 120
+
+  return Math.max(2, Math.floor(windowHeight.value - other))
+}
+
+watch(windowHeight, () => {
+  getRooms()
+}, { immediate: false })
+
+const handleResize = debounce(() => {
+  windowHeight.value = window.innerHeight
+  reqForm.value.pageSize = calculateCardSize()
+  if (cardRef.value) {
+    cardWidth.value = cardRef.value.$el.offsetWidth
+  }
+}, 200)
+
+// eslint-disable-next-line sonarjs/no-invariant-returns
+const copyToClipboard = async text => {
+  try {
+    await navigator.clipboard.writeText(text)
+    
+    return true
+  } catch {
+    // 降级方案
+    const textArea = document.createElement('textarea')
+
+    textArea.value = text
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+    
+    return true
+  }
+}
+
+const getEnabledMods = async room => {
+  const reqForm = {
+    roomID: room.id,
+    worldID: room.worlds[0].id,
+  }
+
+  const response = await modApi.setting.enabledMods.get(reqForm)
+
+  return response.data
+}
+
+const getConnectionCode = async room => {
+  const reqForm = {
+    roomID: room.id,
+  }
+
+  const response = await dashboardApi.connectionCode.get(reqForm)
+
+  return response.data
+}
+
+const generateGameInfo = async room => {
+  const modData = await getEnabledMods(room)
+  const connectionCode = await getConnectionCode(room)
+  const players = await getCurrentPlayersNickname(room.players)
+
+  let modInfo = modData.map(mod => mod.name).join(', ')
+  let info = ''
+  let copyMessage = ''
+
+  switch (globalStore.language) {
+    case 'zh':
+      info = info + `✅房间名称: ${room.gameName}\n`
+      info = info + `✅房间描述: ${room.description ? room.description : '无描述'}\n`
+      info = info + `✅游戏模式: ${t('game.base.step1.gameMode.modes.' + room.gameMode)}\n`
+      info = info + `✅模组个数: ${room.modInOne ? parseModLua(room.modData).length : parseModLua(room.worlds[0].modData).length}\n`
+      info = info + `✅玩家个数: ${getCurrentPlayersNum(room.players)}/${room.maxPlayer}\n`
+      info = info + `✅直连代码: ${connectionCode}\n`
+      info = info + `✅在线玩家: ${players ? players : '无在线玩家'}\n`
+      info = info + `✅模组信息: ${modInfo ? modInfo : '无模组'}\n`
+      copyMessage = '复制成功'
+      break
+    case 'en':
+      info = info + `✅Game Name: ${room.gameName}\n`
+      info = info + `✅Game Desc: ${room.description ? room.description : 'No Desc'}\n`
+      info = info + `✅Game Mode: ${t('game.base.step1.gameMode.modes.' + room.gameMode)}\n`
+      info = info + `✅Mods: ${room.modInOne ? parseModLua(room.modData).length : parseModLua(room.worlds[0].modData).length}\n`
+      info = info + `✅Players: ${getCurrentPlayersNum(room.players)}/${room.maxPlayer}\n`
+      info = info + `✅Code: ${connectionCode}\n`
+      info = info + `✅Online: ${players ? players : 'No Online Players'}\n`
+      info = info + `✅Mods: ${modInfo ? modInfo : 'No Mods'}\n`
+      copyMessage = 'Copy Success'
+      break
+  }
+
+  await copyToClipboard(info)
+
+  await showSnackbar(copyMessage)
+}
+
+onMounted(async () => {
+  reqForm.value.pageSize = calculateCardSize()
+  await getRooms()
+  if (cardRef.value) {
+    cardWidth.value = cardRef.value.$el.offsetWidth
+  }
+  window.addEventListener('resize', handleResize)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+</script>
+

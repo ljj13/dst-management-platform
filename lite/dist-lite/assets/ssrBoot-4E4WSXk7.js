@@ -1,0 +1,1 @@
+import{M as e,at as t,ct as n,ut as r}from"./_plugin-vue_export-helper-BfK4Pnnj.js";function i(){let i=n(!1);return e(()=>{window.requestAnimationFrame(()=>{i.value=!0})}),{ssrBootStyles:r(()=>i.value?void 0:{transition:`none !important`}),isBooted:t(i)}}export{i as t};

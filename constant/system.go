@@ -3,7 +3,7 @@ package constant
 import "time"
 
 // Version 平台版本号
-const Version = "v3.2.3"
+const Version = "v3.2.3-foghub.1"
 
 // ApiVersion 接口版本号
 const ApiVersion = "v3"

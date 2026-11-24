@@ -259,3 +259,36 @@ func (h *Handler) pluginStatusGet(c *gin.Context) {
 
 	message.Respond(c, h.svc.PluginStatus(reqForm.Name))
 }
+
+func (h *Handler) monitorCurrentGet(c *gin.Context) {
+	message.Respond(c, h.svc.MonitorCurrent())
+}
+
+func (h *Handler) monitorHistoryGet(c *gin.Context) {
+	var reqForm struct {
+		Range string `json:"range" form:"range"`
+	}
+	if err := c.ShouldBindQuery(&reqForm); err != nil {
+		logger.Logger.Infof("请求参数错误: %v, api: %s", err, c.Request.URL.Path)
+		message.Respond(c, service.Fail(constant.CodePlatformBadRequest))
+		return
+	}
+
+	message.Respond(c, h.svc.MonitorHistory(reqForm.Range))
+}
+
+func (h *Handler) monitorProcessesGet(c *gin.Context) {
+	var reqForm struct {
+		Sort  string `json:"sort" form:"sort"`
+		Order string `json:"order" form:"order"`
+		Q     string `json:"q" form:"q"`
+		Limit int    `json:"limit" form:"limit"`
+	}
+	if err := c.ShouldBindQuery(&reqForm); err != nil {
+		logger.Logger.Infof("请求参数错误: %v, api: %s", err, c.Request.URL.Path)
+		message.Respond(c, service.Fail(constant.CodePlatformBadRequest))
+		return
+	}
+
+	message.Respond(c, h.svc.MonitorProcesses(reqForm.Sort, reqForm.Order, reqForm.Q, reqForm.Limit))
+}

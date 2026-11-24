@@ -1,0 +1,379 @@
+<template>
+  <v-card
+    height="135"
+    class="cursor-auto mod-card"
+  >
+    <v-tooltip
+      v-if="props.downloaded"
+      location="top"
+    >
+      <template #activator="{ props: tooltipProps }">
+        <span
+          v-bind="tooltipProps"
+          class="downloaded-corner bg-success"
+          aria-hidden="true"
+        />
+      </template>
+      {{ t('game.mod.download.modInfo.downloaded') }}
+    </v-tooltip>
+    <div
+      class="fcc mod-card-content"
+      style="height: 135px"
+    >
+      <div style="width: 80px; height: 80px">
+        <v-img
+          :src="props.mod.preview_url"
+          cover
+          rounded
+          aspect-ratio="1"
+        >
+          <template #placeholder>
+            <div class="fcc fill-height">
+              <v-progress-circular
+                color="grey-lighten-4"
+                indeterminate
+              />
+            </div>
+          </template>
+        </v-img>
+      </div>
+      <div style="width: 200px">
+        <div class="fcc">
+          <v-chip
+            label
+            size="small"
+            color="primary"
+          >
+            {{ computedName }}
+            <v-tooltip
+              activator="parent"
+              open-delay="300"
+              scroll-strategy="close"
+            >
+              {{ props.mod.name }}
+            </v-tooltip>
+          </v-chip>
+        </div>
+        <div
+          style="margin: 5px 0"
+          class="fcc"
+        >
+          <precise-rating
+            :value="computedRate"
+            :length="5"
+            show-actual-value
+            size="24"
+          />
+        </div>
+        <div class="fcc">
+          <v-dialog
+            v-model="dialogVisible"
+            class="flex-wrap"
+            max-width="60%"
+          >
+            <template #activator="{ props: activatorProps }">
+              <v-btn
+                color="info"
+                density="compact"
+                size="small"
+                v-bind="activatorProps"
+                class="mr-4"
+                @click="dialogVisible=true"
+              >
+                {{ t('game.mod.download.modInfo.detail') }}
+              </v-btn>
+            </template>
+            <!-- eslint-disable-next-line vue/no-unused-vars -->
+            <template #default="{ isActive }">
+              <v-card :title="props.mod.name">
+                <v-card-text>
+                  <v-table class="custom-table">
+                    <tbody>
+                      <tr>
+                        <td
+                          rowspan="2"
+                          class="text-center"
+                        >
+                          <v-icon
+                            icon="ri-image-line"
+                            color="info"
+                          />
+                        </td>
+                        <td
+                          rowspan="2"
+                          class="text-center"
+                        >
+                          <div
+                            class="fcc my-2"
+                            style="width: 100%; height: 150px"
+                          >
+                            <div style="width: 150px; height: 150px">
+                              <v-img
+                                :src="props.mod.preview_url"
+                                cover
+                                rounded
+                                aspect-ratio="1"
+                              >
+                                <template #placeholder>
+                                  <div class="d-flex align-center justify-center fill-height">
+                                    <v-progress-circular
+                                      color="grey-lighten-4"
+                                      indeterminate
+                                    />
+                                  </div>
+                                </template>
+                              </v-img>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="text-center">
+                          ID
+                        </td>
+                        <td class="text-center">
+                          <v-chip
+                            color="info"
+                            label
+                          >
+                            {{ props.mod.id }}
+                          </v-chip>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="text-center">
+                          {{ t('game.mod.download.modInfo.size') }}
+                        </td>
+                        <td class="text-center">
+                          <v-chip
+                            color="info"
+                            label
+                          >
+                            {{ formatBytes(props.mod.size) }}
+                          </v-chip>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="text-center">
+                          <v-icon
+                            icon="ri-thumb-up-fill"
+                            color="success"
+                          />
+                        </td>
+                        <td class="text-center">
+                          <v-chip
+                            color="success"
+                            label
+                          >
+                            {{ props.mod.vote_data.votes_up }}
+                          </v-chip>
+                        </td>
+                        <td class="text-center">
+                          <v-icon
+                            icon="ri-thumb-down-fill"
+                            color="error"
+                          />
+                        </td>
+                        <td class="text-center">
+                          <v-chip
+                            color="error"
+                            label
+                          >
+                            {{ props.mod.vote_data.votes_down }}
+                          </v-chip>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="text-center">
+                          {{ t('game.mod.download.modInfo.createTime') }}
+                        </td>
+                        <td class="text-center">
+                          <v-chip
+                            color="success"
+                            label
+                          >
+                            {{ timestamp2time(props.mod.time_created * 1000) }}
+                          </v-chip>
+                        </td>
+                        <td class="text-center">
+                          {{ t('game.mod.download.modInfo.updateTime') }}
+                        </td>
+                        <td class="text-center">
+                          <v-chip
+                            color="info"
+                            label
+                          >
+                            {{ timestamp2time(props.mod.time_updated * 1000) }}
+                          </v-chip>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="text-center">
+                          {{ t('game.mod.download.modInfo.subscriptions') }}
+                        </td>
+                        <td
+                          colspan="3"
+                          class="text-center"
+                        >
+                          <v-chip
+                            color="default"
+                            label
+                          >
+                            {{ props.mod.subscriptions }}
+                          </v-chip>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td class="text-center">
+                          <v-icon
+                            icon="ri-star-fill"
+                            color="warning"
+                          />
+                        </td>
+                        <td
+                          colspan="3"
+                          class="text-center"
+                        >
+                          <precise-rating
+                            :value="computedRate"
+                            :length="5"
+                            :show-actual-value="true"
+                            size="24"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                  <v-container height="30vh">
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div v-html="descriptionHtml" />
+                  </v-container>
+                </v-card-text>
+              </v-card>
+            </template>
+          </v-dialog>
+          <progress-button
+            :progress="props.downloadProgress"
+            :color="downloaded?'warning':'success'"
+            density="compact"
+            size="small"
+            @click="handleDownload"
+          >
+            <span v-if="downloaded">
+              {{ t('game.mod.add.updateMod') }}
+            </span>
+            <span v-else>
+              {{ t('game.mod.download.modInfo.download') }}
+            </span>
+          </progress-button>
+        </div>
+      </div>
+    </div>
+  </v-card>
+</template>
+
+<script setup>
+import { formatBytes, timestamp2time } from "@/utils/tools"
+import { sanitizeHtml } from "@/utils/sanitize"
+
+import PreciseRating from "@/components/PreciseRating.vue"
+import bbCodeParser from 'js-bbcode-parser'
+import { useI18n } from "vue-i18n"
+
+
+const props = defineProps({
+  mod: {
+    type: Object,
+    default: () => ({}),
+  },
+  roomID: {
+    type: Number,
+    default: 0,
+  },
+  downloaded: {
+    type: Boolean,
+    default: false,
+  },
+  downloadProgress: {
+    type: Number,
+    default: 0,
+  },
+})
+
+const emit = defineEmits(['download'])
+
+const { t } = useI18n()
+
+const computedRate = computed(() => {
+  return parseFloat((props.mod.vote_data.score * 5).toFixed(2))
+})
+
+const computedName = computed(() => {
+  const maxStr = 20
+  if (props.mod.name.length > maxStr) {
+    return props.mod.name.slice(0, maxStr) + '...'
+  }
+  
+  return props.mod.name
+})
+
+// 模组描述来自 Steam 创意工坊，由模组作者控制，属于不可信数据。
+// js-bbcode-parser 既不做 HTML 转义，自身还会生成 href / src / onclick / style 等属性
+// （例如 [url=alert(1)|onclick]x[/url] 会直接产出 <a onclick="alert(1)">），
+// 因此必须净化后才能交给 v-html，否则模组作者可在管理员打开详情弹窗时执行脚本。
+const descriptionHtml = computed(() => sanitizeHtml(bbCodeParser.parse(props.mod.file_description ?? '')))
+
+const dialogVisible = ref(false)
+
+const handleDownload = () => {
+  emit('download', props.mod)
+}
+</script>
+
+<style scoped>
+.mod-card {
+  overflow: hidden;
+  position: relative;
+}
+
+.mod-card-content {
+  position: relative;
+  z-index: 1;
+}
+
+.downloaded-corner {
+  block-size: 28px;
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  inline-size: 28px;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  position: absolute;
+  z-index: 2;
+}
+
+.downloaded-corner::after {
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  opacity: 0.28;
+  position: absolute;
+}
+
+.custom-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.custom-table th,
+.custom-table td {
+  border: 1px solid #e0e0e0;
+  padding: 12px;
+  text-align: left;
+}
+
+.custom-table th {
+  background-color: #f5f5f5;
+  font-weight: 500;
+}
+
+.custom-table tr:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+</style>

@@ -1,27 +1,28 @@
-# DMP v3.2.3-foghub.1 原生监控增强与云端构建报告
+# DMP v3.2.3-foghub.1 原生监控增强、云端构建与生产部署报告
 
 - 生成时间：2026-11-24
-- Fork：<https://github.com/ljj13/dst-management-platform>
-- 分支：`feat/native-monitor`
+- 仓库：<https://github.com/ljj13/dst-management-platform>
+- 主分支：`master`（功能分支 `feat/native-monitor` 已合并，merge commit `ad8442eec403a5905b7e124d550c4e0778be2f78`）
 - 功能与发布提交：`9d72f3cfef32acec76dedfe567ffbb7b0d01245f`
-- 报告提交：本文件所在的分支 HEAD
+- 报告提交：本文件所在的 `master` HEAD
 - 发布标签：`v3.2.3-foghub.1`
-- 生产部署：**未执行**（未获得替换运行中 DMP 的授权）
+- 生产部署：**已执行**，生产 DMP 已升级到 `v3.2.3-foghub.1`，PID 1274373
 
 ## 1. 结论
 
-P0-P5 的源码、构建、测试与发布工作已实际完成：
+P0-P6 的源码、构建、测试、发布与生产部署工作已实际完成：
 
 | 阶段 | 状态 | 结果 |
 | --- | --- | --- |
 | P0 基线与 Monorepo | 完成 | 上游前端精确版本已纳入 `frontend/`，统一构建脚本与来源记录已提交 |
-| P1 GitHub Actions | 完成 | CI 与 Release 均真实运行成功，产物已发布 |
-| P2 后端原生监控 | 完成 | 5 秒采集、进程识别、历史降采样、只读 API 已实现 |
+| P1 GitHub Actions | 完成 | CI、master CI 与 Release 均真实运行成功，产物已发布 |
+| P2 后端原生监控 | 完成 | 5 秒采集、进程识别、历史降采样、只读 API 已实现并在生产运行 |
 | P3 前端监控页 | 完成 | 原系统监控页增强，桌面/移动端、明暗主题、中英文均实测 |
-| P4 验证 | 部分完成 | API、权限、进程、断线、内存、静态资源已验证；未使用真实 DST 存档做集成测试 |
+| P4 验证 | 部分完成 | API、权限、进程、断线、内存、静态资源已验证；未用真实 DST 存档做游戏加载集成测试 |
 | P5 版本与发布 | 完成 | `v3.2.3-foghub.1` Release、`dmp.tgz`、`dmp-lite.tgz`、`SHA256SUMS` 已发布 |
+| P6 生产部署 | 完成（有限制） | 已备份、校验、停 DMP、替换二进制并启动；生产验收与性能观察完成。部署前 DST Master/Caves 已处于停止状态，未做游戏加载验证 |
 
-生产服务器没有被连接、重启或替换。本文第 9 节给出部署与回滚方案，供获得授权后执行。
+生产服务器已完成部署。需要明确：部署前的实际基线中，DST Master/Caves 已停止（无进程、无 11001/11002 监听、日志显示 05:16 执行 `c_shutdown()`），不是任务描述所称的“运行中”。因此本报告不会声称“保持原 Master/Caves PID/玩家不受影响”，只声明未触碰游戏存档、MOD、Klei Token、游戏端口和 DST 本体，且部署过程未启动或停止游戏进程。
 
 ## 2. 上游基线与来源
 
@@ -131,6 +132,8 @@ P0-P5 的源码、构建、测试与发布工作已实际完成：
 | Release 时间 | 2026-11-24 07:57:32Z → 08:01:23Z |
 | Release 标签 | <https://github.com/ljj13/dst-management-platform/releases/tag/v3.2.3-foghub.1> |
 | Artifact | `dmp-linux-amd64`，24,591,657 bytes（CI 构建） |
+| master CI 运行 | <https://github.com/ljj13/dst-management-platform/actions/runs/45426649006> |
+| master CI 结果 | **success**（head `ad8442ee`，2026-11-24 15:32:14Z 启动） |
 
 CI 日志确认以下步骤均成功：前端 frozen install、lint、标准/Lite 构建、静态资源校验、gofmt、错误码文档校验、Go vet、Linux amd64 构建、打包、冒烟测试、artifact 上传。
 
@@ -330,52 +333,150 @@ Release：<https://github.com/ljj13/dst-management-platform/releases/tag/v3.2.3-
 
 `run.sh` 已通过 WSL `bash -n` 语法检查。
 
-## 9. 部署与回滚方案（未执行）
+## 9. 生产部署与回滚（已执行）
 
-生产环境信息来自任务描述：腾讯云 Lighthouse Ubuntu 26.04.1 x86-64、4 vCPU、3.6 GiB RAM、2 GiB Swap、39 GB 盘，原 DMP `v3.2.2`，已运行 DST Master/Caves，域名 `dst.foghub.org`。
+### 9.1 生产基线（部署前实测）
 
-**没有获得替换运行中 DMP 的授权，因此以下步骤均未在生产执行。**
+| 项目 | 实测值 |
+| --- | --- |
+| 主机 | 腾讯云 Lighthouse，`dst.foghub.org` / `ubuntu@43.139.137.88:22` |
+| 系统 | Ubuntu 26.04.1 LTS，内核 7.0.0-44-generic，x86-64 |
+| 资源 | 4 vCPU，3.7 GiB RAM，2 GiB Swap，39 GB 盘（约 26 GB 可用） |
+| 旧 DMP | `v3.2.2`，`/root/dmp`，43,360,416 bytes，PID 22145，cwd `/root` |
+| 启动参数 | `/root/dmp -bind 80 -dbpath data -level info -cert  -key` |
+| 启动方式 | 无 systemd unit，无 crontab 自启；由 `/root/run.sh` 的 `nohup` 手动启动，stdout/stderr 丢弃 |
+| 反向代理 | Caddy 2，443 → `127.0.0.1:80`；配置 `/etc/caddy/Caddyfile` |
+| 数据库 | `/root/data/dmp.db` + WAL，约 18 MB；`quick_check=ok`；rooms=1、worlds=2、users=1、mod_info=11、plugins=2、map_images=958 |
+| Klei 数据 | `/root/.klei/DoNotStarveTogether/Cluster_1`，117 MB，186 files；Master 92 个 session 文件，Caves 34 个 |
+| 玩家 | 0/8 |
+| DST 状态 | **已停止**：无 `dontstarve` 进程、无 screen/tmux 会话、UDP 11001/11002 未监听；日志显示 2026-11-24 05:16 执行 `c_shutdown()` 后 `[Shard] Stopping shard mode` 干净退出 |
+| 其他目录 | `/root/dst` 4.5 GB，`/root/dmp_files` 49 MB，`/root/logs` 1.3 MB，无独立 `/root/backups` |
 
-### 9.1 部署前检查
+部署前已明确记录：任务描述称 Master/Caves 正在运行，但实际已离线；因此本次没有“踢玩家/强杀分片”的操作，也不能声称游戏进程在升级期间持续运行。
 
-1. 确认 DMP 实际安装目录、二进制路径、启动方式（systemd/run.sh/screen）、监听端口、`-dbpath` 数据库位置。
-2. 确认 DST Master/Caves 的 screen/进程状态与当前玩家数量。
-3. 备份：
-   - 当前 `dmp` 二进制；
-   - `run.sh` 及环境配置；
-   - 数据库文件（SQLite 使用一致性备份，如 `sqlite3 dmp.db ".backup ..."`，不要直接复制正在写入的库）；
-   - 不触碰游戏存档、MOD、Klei Token、玩家数据。
-4. 校验 `dmp.tgz` 的 SHA-256 与 Release `SHA256SUMS` 一致。
-5. 在临时目录解压并运行 `./dmp -v`，确认输出 `v3.2.3-foghub.1`。
+### 9.2 备份、异地副本与恢复验证
 
-### 9.2 部署步骤（授权后）
+最终备份目录：`/var/backups/dmp/pre-foghub-upgrade-20261124T152639Z/`（root 700）。
 
-1. 停止 DMP 服务（只停 DMP，不重启 Master/Caves）。
-2. 再次确认数据库一致性和备份文件可读。
-3. 用新二进制替换旧二进制，保留旧文件为 `dmp.v3.2.2.bak`。
-4. 用原启动参数启动，确认：
-   - 进程正常；
-   - 日志无迁移 panic；
-   - 登录、平台页、系统监控 API 正常；
-   - Master/Caves 进程未被误杀。
-5. 验证管理员登录、`/v3/platform/monitor/current`、历史、进程表、普通用户权限拒绝。
-6. 观察至少一个 5 秒采样周期和一次 1 分钟旧 metrics 采集。
+完整预备份：
 
-### 9.3 回滚
+- 归档：`dmp-backup-20261124T152639Z.tar.gz`，100,646,830 bytes。
+- SHA-256：`93cb903dacb23dc0575f9c5679e7d477b7b0e82b3b2bc2be33f5e3a8e4f9aae4`。
+- 内容：完整 `.klei/DoNotStarveTogether`、旧 `dmp`、旧 `run.sh`、manual 安装/更新脚本、在线 SQLite backup API 生成的 `dmp.db`、`dmp_files`、`dst-mods`、日志、Caddyfile、部署前 baseline、`manifest.sha256`、`SHA256SUMS`。
+- 在线 DB 使用 SQLite backup API，`integrity_check=ok`，rooms/worlds/users=1/2/1。
+- 归档内 285 条 manifest（不含 manifest 自身），解压后 286 个文件；`sha256sum -c manifest.sha256 --quiet` 通过。
 
-出现启动失败、数据库迁移异常、监控页不可用或 DMP 影响 DST 控制时：
+文件级恢复验证：
 
-1. 停止新 DMP。
-2. 恢复旧 `dmp` 二进制。
-3. 如数据库迁移导致不兼容，使用部署前一致性备份恢复数据库。
-4. 按原方式启动旧版本。
-5. 确认 Master/Caves 仍在运行、玩家可连接、DMP 页面可登录。
-6. 保留日志与失败现象，不在生产反复试错。
+- 独立临时目录 `/var/tmp/dmp-restore-20261124T152639Z` 完整解压，未覆盖生产目录、未占用 80/443/游戏端口。
+- `PRAGMA integrity_check` 返回 `ok`；表计数 1/2/1。
+- `cluster.ini`、`cluster_token.txt`、Master/Caves 的 `save/shardindex`、`modoverrides.lua`、MOD `modinfo.lua` 均存在。
+- Master session 92 个、Caves 34 个，与源目录一致。
+- 权限：`dmp/dmp` 755 `lighthouse`，`dmp/run.sh` 700 root，Master save 755 root，`dmp/data/dmp.db` 600 root。
+- **未执行游戏加载测试**，所以结论是“文件级恢复已验证，游戏加载未验证”，不是“存档已成功加载”。
+
+Windows 异地副本：
+
+- 路径：`G:\Archive\DST\Backups\pre-foghub-upgrade-20261124T152639Z\`。
+- 含归档、`.sha256`、`manifest.sha256`、`dmp-version.txt`。
+- 本地 SHA-256 与服务器一致：`93CB903D...AAE4`（完整值同上）。
+
+停服与最终冷备份：
+
+- 2026-11-24 15:33:49Z 仅向 DMP PID 22145 发送 SIGTERM，DMP 优雅退出，`pgrep -x dmp` 为空；DST 本来已停止，未触碰。
+- 冷备份目录：`/var/backups/dmp/pre-foghub-upgrade-20261124T152639Z/final-state-20261124T153349Z/`。
+- 含冷 `dmp.db`、版本、停服后进程/端口基线、`SHA256SUMS`；冷 DB `integrity_check=ok`，计数 1/2/1。
+- 冷归档：`dmp-final-state-20261124T153349Z.tar.gz`，13,413,921 bytes。
+- SHA-256：`3fe9d70edc38c98965fb2fbca148f411053a7672efacfa1ebbc47757001bac47`。
+- 已下载到 `G:\Archive\DST\Backups\pre-foghub-upgrade-20261124T152639Z\dmp-final-state-20261124T153349Z.tar.gz`，本地与服务器 SHA-256 一致；本地解压验证 DB `integrity_check=ok`、计数 1/2/1、DB 文件哈希 `2c3fffb3...30f3` 与 `final-state-SHA256SUMS` 一致。
+- 部署准入的四个条件（完整备份、Windows 副本、双端哈希、临时恢复验证）均已满足。
+
+### 9.3 部署过程
+
+1. 本地 Release 附件 `dmp.tgz`（18,702,237 bytes）经 SFTP 上传到 `/root/dmp-deploy-20261124T153349Z/`，避免服务器直连 GitHub 下载慢。
+2. `sha256sum -c` 通过，期望值 `5a09e5aa1d893dc7a0268167c321ed463d8d8d680f4f6260f51f8cf129b28025`。
+3. 解压得到 ELF 64-bit x86-64 静态链接 `dmp`；`./dmp -v` 输出 `v3.2.3-foghub.1`、go1.27.4。
+4. 从 fork `master` 下载定制 `run.sh` 到 `run.sh.new`，`bash -n` 通过。与旧 `/root/run.sh` 的差异只有：GitHub URL 改为 `ljj13/dst-management-platform`，以及两处拒绝非 `*-foghub.*` 发布；旧哈希 `dd6a1984...d2fc`，新哈希 `4900f4cc...fb71`。
+5. 备份旧二进制 `/root/dmp.v3.2.2.bak`（SHA-256 `946657afe1db...d5ad`）和旧脚本 `/root/run.sh.v3.2.2.bak`。
+6. 新 `/root/dmp` SHA-256 `95ed200530aa00d09a64c0e4790d417ecbcc9ce3879cbafe23a4eb591dc35689`，owner `lighthouse`、755；新 `/root/run.sh` root、700。
+7. 以原参数启动：`nohup /root/dmp -bind 80 -dbpath data -level info -cert "" -key ""`，新 PID 1274373。
+8. 80 端口监听，`GET /` 返回 200（3,435 bytes）；`dmp -v` 正确；Caddy 443 正常。
+9. 启动日志显示数据库连接成功、定时任务注册成功、游戏版本获取成功；DB `quick_check=ok`，计数仍为 1/2/1，无迁移错误。
+
+### 9.4 生产功能与权限验收
+
+- 管理员浏览器登录 `https://dst.foghub.org` 成功，页面版本 `v3.2.3-foghub.1`，原房间 `FogPurification`、游戏版本 762172、天数 111、玩家 0/8；原平台房间/世界/MOD 数据仍可见。
+- 系统监控页完整渲染：8 张总览卡、CPU 总览 + Load、4 张独立 vCPU 卡（`CPU 1`–`CPU 4`）、Steal/IOWait、内存/Swap、磁盘 I/O、网络 Mbps、DST/DMP 资源、进程表。
+- 生产截图：
+  - `C:\Users\commender\.dsh\profiles\desktop\dsh-browser-shots\2026-11-24T15-43-16-357Z-2chu.png`
+  - `C:\Users\commender\.dsh\profiles\desktop\dsh-browser-shots\2026-11-24T15-45-08-863Z-wbzu.png`
+- 进程表中的 DMP 行来自真实采集：PID 1274373、名称 `dmp`、角色 DMP、CPU 约 0.40%、RSS 59.8 MB、内存 1.61%、状态 sleep、运行时间正常；无命令行、环境变量、Klei Token 或 `/root/dmp` 路径。
+- `GET /v3/platform/monitor/current`：`code:200`、`available:true`、`status:"ok"`、`cores:4`、`perCore` 长度 4、`processTotal:137`、`processes:137`、`partial:false`、`warnings:[]`。
+- `history?range=15m|1h|24h` 均 `code:200`、`available:true`；部署后约 48 点，`sampleIntervalSeconds:5`、`downsampled:false`；没有伪造历史。
+- 实时刷新：页面可见时“更新于”从 23:44:31 变为 23:44:36（5 秒）；页面隐藏时暂停，恢复可见后继续，这是设计行为。
+- 24 小时时间范围已通过页面下拉实际选中并显示“24 小时”。
+- 权限：管理员访问 200；临时普通用户 `permcheck_<ts>` 访问 `/v3/platform/monitor/current` 与 `/v3/platform/overview` 均返回 `code:2 权限不足`；无 token 返回 HTTP 200 + JSON `code:420`。临时用户已通过 `DELETE /v3/user/base` 删除，DB 恢复 1/2/1。
+- Linux 对照（2026-11-24 15:46:04Z）：`nproc=4`；`free -b` total 3,898,601,472、used 593,268,736、buff/cache 2,929,115,136、swap used 95,203,328；`df -B1 /` total 41,601,839,104、used 13,506,125,824（34%）；load 0.13；DMP RSS 61,712 KB、CPU 0.6%；22/80/443 正常；无 DST 进程、UDP 11001/11002 未监听。
+- 未发现数据库迁移错误；运行日志中的越权 WARN 来自本次权限测试，不是故障。
+
+### 9.5 长期备份配置
+
+- DMP 原生备份：每日 06:00，`backup_clean_setting=60` 天；现有 3 个 zip（11/22、11/23、11/24），每个约 12–18 MB，内容为完整 `Cluster_1`（217 files，约 114 MB 未压缩）。
+- 新增 `/usr/local/sbin/dmp-backup-rotate.sh`，并由 `/etc/cron.d/dmp-backup-rotate` 在每日 06:30 执行：
+  - 从 `/root/dmp_files/backup/1/` 取最新 zip，先做完整性 `unzip -t`；
+  - 镜像到 `/var/backups/dmp/auto/daily/`，保留最近 7 天；
+  - 周日额外镜像到 `/var/backups/dmp/auto/weekly/`，保留最近 4 周；
+  - 升级前备份目录 `pre-foghub-upgrade-*` 不在清理范围内，永久保留；
+  - 磁盘保护：可用空间低于 2 GiB 或低于 10% 时拒绝执行并记录错误；
+  - 日志：`/var/log/dmp-backup-rotate.log`；失败时同时写入 `/root/logs/runtime.log` 的 `[ERROR]` 行，便于在 DMP 运行日志中看到。
+- 已实际执行一次：`/var/backups/dmp/auto/daily/dmp-backup-20261124.zip`，18,668,263 bytes，内容与源 zip 一致。
+- 仍存在的缺口：
+  - DMP 原生备份没有内置分层保留，本次用外部脚本补足 7 天/4 周；DMP 自身仍保留 60 天。
+  - 没有配置自动异地同步。关键升级前备份已人工下载到 `G:\Archive\DST\Backups\`，但日常/每周归档的自动异地需要对象存储或另一台主机凭据，本次没有可用目标，未假装已配置。
+  - 没有外部告警通道（邮件/Webhook）。失败会写入 DMP 运行日志和本机日志，但没有推送到手机/邮箱；这是剩余运维缺口。
+
+### 9.6 性能观察
+
+10 分钟生产观察日志：`/var/backups/dmp/pre-foghub-upgrade-20261124T152639Z/perf-after-deploy-20261124T154938Z.log`，每 10 秒采样 DMP CPU/RSS、load、内存、`/proc/stat`、socket 统计。
+
+采样区间：2026-11-24 15:49:38Z → 15:59:39Z，共 61 个样本（每 10 秒）。结果：
+
+| 指标 | 观察值 |
+| --- | --- |
+| DMP CPU | 平均 0.52%，最高 0.60% |
+| DMP RSS | 平均 59,869 KiB，最高 65,236 KiB（约 58.5–63.7 MiB） |
+| Load1 | 平均 0.127，最高 0.29 |
+| 内存 used | 平均 563 MiB，最高 581 MiB |
+| Buff/cache | 约 2.8 GiB |
+| Swap used | 稳定约 90 MiB，未增长 |
+| CPU iowait / steal | 约 0.0%，无异常 |
+| TCP 连接 | 采样期间总 socket 约 214–253，结束时 established 43（浏览器页面连接） |
+
+结论：
+
+- 5 秒采集对 4 vCPU 生产机的 CPU 开销低于 1%，RSS 稳定在约 60 MiB，没有随时间单调增长或周期性尖峰。
+- 监控页隐藏后停止 5 秒轮询；重新可见后恢复。服务端是单例采集器，浏览器只读快照，不按客户端重复采样。
+- 本次未能从测试工作站完成生产多客户端并发复测：2026-11-24 23:47 起本地到 443 的 TLS 路径被重置，而服务器本机 HTTPS 200、证书有效期至 2027-02-19，外部代理读取也返回 200，判断为测试机网络/防护路径问题，不是 DMP 或 Caddy 故障。此前本机两并发请求已确认返回同一 snapshot timestamp，生产单例采集架构未改变。
+- 未做跨天 APM；以上是 10 分钟人工采样，不是长期容量结论。
+
+### 9.7 回滚
+
+出现启动失败、数据库迁移异常、监控严重异常、游戏受影响或资源开销不可接受时：
+
+1. 停止新 DMP：`pkill -x dmp`（只匹配 DMP，不使用 `pkill dmp` 以免误伤路径/其他进程）。
+2. 恢复旧二进制：`cp -p /root/dmp.v3.2.2.bak /root/dmp`，确认 owner/mode 与 43,360,416 bytes、SHA-256 `946657afe1db...d5ad` 一致。
+3. 恢复旧脚本：`cp -p /root/run.sh.v3.2.2.bak /root/run.sh`。
+4. 仅当迁移导致数据库不兼容时，才用冷备份 `final-state-20261124T153349Z/dmp.db` 或完整归档恢复数据库；恢复前再次做一致性备份，避免二次破坏。
+5. 按原方式启动：`cd /root && nohup /root/dmp -bind 80 -dbpath data -level info -cert "" -key "" >/dev/null 2>&1 &`。
+6. 确认 `dmp -v` 为 `v3.2.2`、80/443 正常、管理员可登录、房间/世界数据可见；确认 DST 进程与 11001/11002 状态与回滚前一致（本次基线为停止）。
+7. 保留 `/root/logs`、失败现象和备份，不在生产反复试错。
+
+回滚不会触碰 `/root/.klei`、`/root/dst`、MOD、Klei Token 或游戏端口；本次部署也未修改 Caddy、SSH、云防火墙、DNS 或证书。
 
 ## 10. 已知限制与剩余问题
 
-1. **未做生产部署**：无授权，未连接生产服务器，未验证真实 4 vCPU/3.6 GiB 环境下的页面与采样开销。
-2. **未用真实 DST 进程测试**：使用临时假进程验证角色识别、退出、重启与 PID 复用；未加载真实存档。
+1. **生产基线中 DST 已停止**：部署前无 Master/Caves 进程、无 11001/11002 监听；本次没有启动游戏，也没有做真实存档加载测试。因此“玩家在线/分片切换不受影响”没有被验证，报告中不将其标为通过。
+2. **只做了文件级恢复验证**：备份解压、清单、SQLite、存档目录与权限均验证；未在隔离环境真正启动 DST 加载世界。需要明确标记为“游戏加载未验证”。
 3. **进程列表有界**：最多 300 条，`processPartial` 可能为 `true`；这是为了避免每次请求枚举全部进程。
 4. **Windows 状态字段受限**：gopsutil 在 Windows 返回 `unknown`；Linux 正常。
 5. **网卡速率仅 Linux**：`linkSpeedMbps` 读取 `/sys/class/net/*/speed`，其他平台为空。
@@ -386,6 +487,13 @@ Release：<https://github.com/ljj13/dst-management-platform/releases/tag/v3.2.3-
 10. **Docker 未纳入必需发布路径**：避免 Docker 构建阻断 Linux amd64；原上游 GHCR 硬编码已移除。
 11. **Release 的 latest 语义**：`run.sh` 使用 GitHub `/releases/latest`；如果未来把定制版标记为 prerelease，latest 可能指向旧版本，需要在发布流程中保持非 prerelease 或改用 releases 列表筛选。
 12. **网络字段大小写**：`upMbps` 与 `upMBps` 仅大小写不同，JSON/JavaScript 合法且数值分别正确；PowerShell `ConvertFrom-Json` 这类大小写不敏感解析器会把二者视为同名，建议这类客户端改用 `upBps`/`downBps`。
+13. **日常异地备份未自动配置**：升级前关键备份已人工下载并双端校验；但日常 7 天/4 周归档的自动异地同步缺少对象存储或第二台主机凭据，未假装已配置。
+14. **外部失败告警未配置**：备份轮转失败会写入 `/var/log/dmp-backup-rotate.log` 和 DMP 运行日志的 `[ERROR]` 行，但没有邮件/IM Webhook 推送。需要用户提供告警目标后才能闭环。
+15. **DMP 原生备份保留 60 天**：未直接修改 DMP 内部清理策略；外部脚本额外保留 7 天/4 周，升级前备份永久保留。
+16. **性能观察为 10 分钟人工采样**：不是长期 APM；已记录 DMP CPU/RSS、系统负载、内存与 socket 统计，但没有跨天趋势。
+17. **4 vCPU 图上限**：前端只绘制前 4 个核心，超过 4 核会提示；API 始终返回全部核心。生产目标正好 4 vCPU。
+18. **DST 资源曲线当前为无数据**：这是真实状态，不是造假；游戏进程未运行，Master/Caves 曲线不应有值。
+19. **前端进程状态依赖 gopsutil**：Linux 生产正常；Windows 开发机显示 `unknown`，不影响 Linux 发布。
 
 ## 11. 关键文件索引
 
@@ -417,9 +525,16 @@ Release：<https://github.com/ljj13/dst-management-platform/releases/tag/v3.2.3-
 | 敏感信息 | 进程 JSON 无 cmdline/environment；无 Shell/终止接口 |
 | 历史与降采样 | 24h 环形 17,280 点；15m/1h/24h 目标 180/240/720 点 |
 | 前端双语/主题/移动端 | 浏览器实测中英文、暗色、iPhone 13 |
-| Actions 真实成功 | CI run 45351359668、Release run 45352019308 均 success |
+| Actions 真实成功 | CI run 45351359668、Release run 45352019308、master CI 45426649006 均 success |
 | Linux amd64 发布 | Release `v3.2.3-foghub.1`，`dmp.tgz` + `SHA256SUMS` |
-| 不部署生产 | 未连接、未替换、未重启生产 DMP |
+| 生产备份 | 完整归档 100,646,830 bytes + 冷备份 13,413,921 bytes，双端 SHA-256 一致 |
+| 恢复验证 | 独立临时目录解压、285 条清单、SQLite integrity ok、存档目录/权限通过；游戏加载未验证 |
+| 生产部署 | 新 DMP PID 1274373，版本 `v3.2.3-foghub.1`，80/443 正常，DB 1/2/1 |
+| 生产 UI | 管理员登录、原房间数据、4 vCPU、进程表、5 秒刷新、15m/1h/24h 实测 |
+| 生产权限 | 普通用户 `code:2`，无 token `code:420`；临时用户已删除 |
+| 生产资源 | 4 vCPU/3.7 GiB；DMP RSS 约 60 MB、CPU <1%（观察期） |
+| 游戏连续性 | **未验证**：基线 DST 已停止；未启动游戏、未加载存档 |
+| 回滚 | 旧二进制/脚本/冷 DB/完整归档均保留，步骤见 9.7 |
 
 ---
 

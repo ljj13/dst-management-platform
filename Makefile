@@ -2,23 +2,25 @@
 #																#
 #	This file is intended for the development environment only	#
 #		The actual build is performed in GitHub Actions			#
-#			该文件仅用于开发环境，实际编译在Github Action中			#
+#			该文件仅用于开发环境，实际编译在 Github Action 中		#
 #																#
 #################################################################
 
-FRONTEND_DIR := $(HOME)/OpenIdeaProjects/dst-management-platform-web
+# Monorepo：前端源码在 frontend/，不再依赖同级独立仓库。
+FRONTEND_DIR := frontend
 EMBED_DIR := embedFS/dist
 LITE_ASSET := lite/dist-lite
 OUT_DIR := .
 RM := rm -rf
 CGO := CGO_ENABLED=0
+PNPM ?= pnpm
+NODE ?= node
 
 
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
     SHELL := powershell.exe
 	RM = rm -r
-	FRONTEND_DIR = $(USERPROFILE)\OpenIdeaProjects\dst-management-platform-web
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Linux)
@@ -31,9 +33,9 @@ else
     endif
 endif
 
-.PHONY: all frontend2backend backend-only frontend-only lite help codes codes-verify check
+.PHONY: all frontend-install frontend2backend backend-only frontend-only lite lite-frontend-only lite-copy-frontend help codes codes-verify check
 
-# 构建前端 构建后端
+# 安装前端依赖并构建，再构建后端
 all: frontend-only copy-frontend backend-only
 
 # 构建前端并将产物复制到后端
@@ -41,37 +43,39 @@ frontend2backend: frontend-only copy-frontend
 
 lite-frontend2backend: lite-frontend-only lite-copy-frontend
 
-# 构建前端
-frontend-only:
+# 安装前端依赖（严格使用 pnpm-lock.yaml）
+frontend-install:
+	@echo "=== 正在安装前端依赖, 当前系统为: $(DETECTED_OS) ==="
+	$(PNPM) --dir $(FRONTEND_DIR) install --frozen-lockfile
+	$(PNPM) --dir $(FRONTEND_DIR) rebuild
+
+# 构建标准版前端
+frontend-only: frontend-install
 	@echo "=== 正在编译前端, 当前系统为: $(DETECTED_OS) ==="
-	$(RM) $(FRONTEND_DIR)/dist/*
-	cd $(FRONTEND_DIR); pnpm run build
+	$(PNPM) --dir $(FRONTEND_DIR) run build
 
 # 构建后端（会先校验错误码表与文档是否同步）
 backend-only: codes-verify
 	@echo "=== 正在编译后端, 当前系统为: $(DETECTED_OS) ==="
-	mkdir -p $(OUT_DIR)
+	$(NODE) -e "require('node:fs').mkdirSync('$(OUT_DIR)', { recursive: true })"
 	$(CGO) go build -ldflags '-s -w' -v -o $(OUT_DIR)/dmp
 
 # 复制前端产物到 embedFS/dist（不重新构建前端）
 copy-frontend:
 	@echo "=== 正在复制前端, 当前系统为: $(DETECTED_OS) ==="
-	$(RM) $(EMBED_DIR)/*
-	cp -r $(FRONTEND_DIR)/dist/* $(EMBED_DIR)/
+	$(NODE) scripts/copy-dir.mjs $(FRONTEND_DIR)/dist $(EMBED_DIR)
 
 lite: codes-verify
 	@echo "=== 正在编译后端(lite), 当前系统为: $(DETECTED_OS) ==="
-	$(CGO) go build -ldflags '-s -w' -v -tags=lite -o ~/dmp-lite
+	$(CGO) go build -ldflags '-s -w' -v -tags=lite -o $(OUT_DIR)/dmp-lite
 
-lite-frontend-only:
+lite-frontend-only: frontend-install
 	@echo "=== 正在编译前端(lite), 当前系统为: $(DETECTED_OS) ==="
-	$(RM) $(FRONTEND_DIR)/dist-lite/*
-	cd $(FRONTEND_DIR); pnpm run build:lite
+	$(PNPM) --dir $(FRONTEND_DIR) run build:lite
 
 lite-copy-frontend:
 	@echo "=== 正在复制前端(lite), 当前系统为: $(DETECTED_OS) ==="
-	$(RM) $(LITE_ASSET)/*
-	cp -r $(FRONTEND_DIR)/dist-lite/* $(LITE_ASSET)/
+	$(NODE) scripts/copy-dir.mjs $(FRONTEND_DIR)/dist-lite $(LITE_ASSET)
 
 # 重新生成业务错误码文档
 codes:
@@ -86,13 +90,13 @@ codes-verify:
 # 提交前的完整检查
 check: codes-verify
 	@echo "=== 正在检查格式与静态问题 ==="
-	@test -z "$$(gofmt -l $$(find . -name '*.go' -not -path './embedFS/*' -not -path './lite/dist-lite/*'))" || \
-		(echo "以下文件未通过 gofmt:"; gofmt -l $$(find . -name '*.go' -not -path './embedFS/*' -not -path './lite/dist-lite/*'); exit 1)
+	gofmt -l $$(git ls-files '*.go')
 	go vet ./...
 	go vet -tags=lite ./...
 
 help:
 	@echo "=== 正在打印帮助信息, 当前系统为: $(DETECTED_OS) ==="
+	@echo "make frontend-install    安装 frontend/ 依赖（frozen lockfile）"
 	@echo "make frontend2backend    构建前端并将产物复制到后端"
 	@echo "make backend-only        构建后端"
 	@echo "make lite                构建后端(lite)"

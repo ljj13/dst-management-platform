@@ -4,7 +4,7 @@
 
 ## 项目概览
 
-DMP（Don't Starve Together Management Platform）是一个饥荒联机版服务器管理平台。本仓库包含 Go 后端，以及由独立前端仓库构建后嵌入二进制的静态资源；同一份代码用 `lite` 构建标签还会产出精简版后端，其前端以磁盘目录分发。
+DMP（Don't Starve Together Management Platform）是一个饥荒联机版服务器管理平台。本仓库是 Monorepo，包含 Go 后端与 `frontend/` 下的 Vue 3 前端源码；前端构建产物复制到 `embedFS/dist/` 后嵌入二进制。同一份后端代码用 `lite` 构建标签还会产出精简版后端，其前端以磁盘目录分发。
 
 - Go 工具链：`go.mod` 指定 Go 1.27.4；模块路径为 `dst-management-platform-api`。升级 Go 版本时同步 `go.mod`、`.github/workflows/go.yml` 与 `docker/Dockerfile` 中的 `golang` 版本。
 - 主程序技术栈：HTTP 用 Gin，数据访问用 GORM + SQLite，任务调度用 gocron，日志用 Zap。
@@ -14,7 +14,8 @@ DMP（Don't Starve Together Management Platform）是一个饥荒联机版服务
 - `main.go` 安装 panic 捕获与日志刷盘钩子（`logger.HandlePanic`、`logger.Sync`）后调用 `server.Run()`；启动参数在 `server/flags.go`，控制台命令在 `server/console.go`，初始化、依赖装配和路由注册位于 `server/`。`lite/` 有自己独立的启动参数、路由和工具包，不复用这些包。
 - API 版本取自 `constant.ApiVersion`，平台版本取自 `constant/system.go` 中的 `constant.Version`；发版时更新该常量，推送 `v*` tag 会触发 `.github/workflows/go.yml` 构建二进制与镜像。`lite/api` 使用自己的 `apiPrefix`（当前 `/v3`），改接口版本时两处都要同步。
 - 运行环境主要面向 Linux，也支持 macOS；依赖 `screen`、SteamCMD、DST 文件与进程等外部资源。
-- 前端由独立仓库构建后复制到 `embedFS/dist/`，再通过 `go:embed` 嵌入后端二进制；精简版前端则从磁盘目录 `dist-lite/` 提供。
+- 前端源码在 `frontend/`，由 `pnpm run build` 生成 `frontend/dist/`，再复制到 `embedFS/dist/` 并通过 `go:embed` 嵌入后端二进制；Lite 前端由 `pnpm run build:lite` 生成 `frontend/dist-lite/`，复制到 `lite/dist-lite/` 后以磁盘目录分发。
+- 上游基线与精确 commit 记录在 `UPSTREAM.md`；前端 LICENSE 保留在 `frontend/LICENSE`。
 
 ## 目录职责
 
@@ -32,11 +33,13 @@ DMP（Don't Starve Together Management Platform）是一个饥荒联机版服务
 - `webhook/`：Webhook 事件、签名和异步发送。
 - `utils/`：共享工具函数（路径、命令、安全校验、进程内存 `GetRES` 等）；Klei TEX（KTEX）图集解包在 `utils/tex.go`，供 TMI 插件安装和地图资源提取使用，只包含解包链路，不含打包/压缩。
 - `logger/`：Zap 日志、访问日志、panic 捕获与运行时崩溃输出。
+- `frontend/`：Vue 3 + Vite + Vuetify 前端源码，Monorepo 的一部分；`frontend/dist/`、`frontend/dist-lite/` 是构建产物，不提交。前端规范见 `frontend/AGENTS.md`，但与本文冲突时以本文和根目录任务要求为准。
+- `scripts/`：跨平台构建辅助脚本（如 `copy-dir.mjs`），供 Makefile 与 CI 复用。
 - `embedFS/`：通过 `go:embed` 打包的前端、LuaJIT 库和安装脚本。
 - `docs/`：项目文档及图片资源；`docs/error-codes.md` 是业务错误码表，由 `cmd/codedoc` 生成，不要手工编辑。
 - `cmd/codedoc/`：错误码文档生成器兼校验器。通过 `make codes` / `make codes-verify` 调用（等价于 `go run ./cmd/codedoc [-verify]`）；`-verify` 校验码唯一、号段正确、词条存在、无死码，并检查 `docs/error-codes.md` 是否已同步。
 - `.agents/skills/`：本仓库的 agent 技能说明（`frontend-project`、`no-test`、`sandbox`、`zh-cn`），按任务类型加载。
-- `.github/`：Issue 模板与发布流水线；`workflows/go.yml` 在 `v*` tag 上构建 Linux/macOS 主程序与 `dmp-lite.tgz`（含 `dmp-lite`、`lite/dist-lite`、手动安装/更新脚本），并推送 Docker 镜像（镜像只包含主程序）。
+- `.github/`：Issue 模板与 CI/发布流水线。`workflows/ci.yml` 在 push/PR/dispatch 上安装前端依赖、构建前端、执行 Go 格式/错误码/vet 检查并构建 Linux amd64 二进制；`workflows/release.yml` 在 `v*` tag 上复用构建逻辑，发布 `dmp.tgz`、`dmp-lite.tgz`、`SHA256SUMS`。Docker 镜像为独立可选工作流，不阻断原生二进制发布。
 - `docker/`、`run.sh`：发布和最终用户部署，不是日常开发入口。
 
 ## 常用命令
@@ -52,6 +55,13 @@ go vet ./...
 
 # Linux 发布构建（无 CGO）
 CGO_ENABLED=0 go build -ldflags '-s -w' -v -o dmp
+
+# 安装前端依赖并构建标准版前端（生成的 dist/ 不提交）
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend run build
+
+# 将 frontend/dist 复制到 embedFS/dist（跨平台脚本）
+node scripts/copy-dir.mjs frontend/dist embedFS/dist
 
 # Make 构建后端；所有平台均为 CGO_ENABLED=0
 # macOS 输出到 ~/dmp，Linux 输出到仓库根目录 ./dmp
@@ -77,7 +87,7 @@ make check
 make help
 ```
 
-`make all`、`make frontend-only`、`make frontend2backend`、`make copy-frontend` 以及 `make lite-frontend-only`、`make lite-copy-frontend`、`make lite-frontend2backend` 假定前端仓库位于 `$(HOME)/WebstormProjects/dst-management-platform-web`，并可能清空或替换前端 `dist/`、`dist-lite/` 及 `embedFS/dist/`、`lite/dist-lite/`。只有任务明确涉及前端构建产物、且该外部仓库存在时才运行；不要手工编辑 `embedFS/dist/`、`lite/dist-lite/` 中带哈希的资源。
+`make all`、`make frontend-only`、`make frontend2backend`、`make copy-frontend` 以及 `make lite-frontend-only`、`make lite-copy-frontend`、`make lite-frontend2backend` 直接使用仓库内的 `frontend/`，会清空或替换 `embedFS/dist/`、`lite/dist-lite/`。不要手工编辑 `embedFS/dist/`、`lite/dist-lite/` 中带哈希的资源；前端改动必须提交源码并重新构建。
 
 沙箱环境下若构建因无法写入系统 Go 缓存而失败，把缓存指向 `/tmp`，例如 `GOCACHE=/tmp/gocache go vet ./...`、`GOCACHE=/tmp/gocache go build ...`（见 `.agents/skills/sandbox/SKILL.md`）。Windows 下 `/tmp` 不可用，改为指向工作区内的临时目录（如 `.gocache`，验证完删除），因为沙箱只允许写工作区。
 
@@ -94,6 +104,13 @@ go run . -bind 8080 -dbpath ./data -level debug
 精简版只有 `-bind` 一个参数（默认 `9999`），启动时从可执行文件同级的 `dist-lite/` 读前端，数据库写到工作目录的 `dmp-lite.sdb`，集群目录固定为 `~/.klei/DoNotStarveTogether/Cluster_1`；启动同样会操作 `screen` 与 DST 进程，验证时按主程序的要求对待。
 
 ## 修改规则
+
+### 前端代码
+
+- 前端源码在 `frontend/`，使用 Vue 3 `<script setup>`、Vuetify 3、ECharts；提交前至少运行 `pnpm --dir frontend run build`（或 `make frontend-only`），确保标准版与 Lite 版都能构建。
+- 前端验证以 `frontend/AGENTS.md` 的代码规范为准（无分号、2 空格缩进、组件 kebab-case、`ri` 图标），但不得再引用仓库外的前端路径。
+- 修改前端后必须把 `frontend/dist/` 整体复制到 `embedFS/dist/`；如涉及 Lite，还要把 `frontend/dist-lite/` 整体复制到 `lite/dist-lite/`。不要只改 `embedFS/dist/` 或 `lite/dist-lite/` 内的哈希文件。
+- 用户可见文案必须同时维护 `frontend/src/languages/lang-zh.js` 与 `lang-en.js`；禁止用假数据冒充监控指标。
 
 ### Go 代码
 
@@ -148,7 +165,7 @@ go run . -bind 8080 -dbpath ./data -level debug
 
 ### 生成物与依赖
 
-- `embedFS/dist/` 与 `lite/dist-lite/` 都是独立前端仓库的编译产物（后者由 `pnpm run build:lite` 生成）。不要手工编辑带哈希的 JS/CSS/图片；仅在任务明确要求更新前端产物时整体替换并说明来源。
+- `embedFS/dist/` 与 `lite/dist-lite/` 都是 `frontend/` 的编译产物（后者由 `pnpm run build:lite` 生成）。不要手工编辑带哈希的 JS/CSS/图片；前端源码改动后必须重新构建并整体替换。
 - `embedFS/luajit/*.so` 是二进制依赖，不进行格式化或手工修改。
 - 修改 `embedFS/shell/` 时要注意这些脚本会在运行时释放到工作目录。
 - 不要为了整理而改写 `go.mod`/`go.sum`。仅在依赖确有变化时执行 `go mod tidy`，并审查依赖差异。

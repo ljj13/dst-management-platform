@@ -1,0 +1,124 @@
+import { Version } from '@/config'
+
+
+export const generateLogo = (color="#8C57FF") => {
+  const a = `
+  <svg class="svg-canvas" viewBox="100 100 600 400" width="800" height="600" preserveAspectRatio="none" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+  <g id="shape_Y1MFRqHJ6u" mask="">
+    <g transform="translate(120,135.97354382365) rotate(0,280,164.02645617635) scale(1,1)"
+       style="opacity: 1;mix-blend-mode: undefined;" filter="">
+      <svg data-noselect="" viewBox="222.29009226667768 82.52330644317703 383.19672 224.48000000000002" width="560"
+           height="328.05291235269" preserveAspectRatio="none" version="1.1" xmlns="http://www.w3.org/2000/svg"
+           style="background: transparent;" class="style-removed" data-parent="shape_Y1MFRqHJ6u">
+        <g id="shape_GhDKMseSsz" class="icon custom-icon text brand_word_letter" mask="">
+          <g transform="translate(-195.58618432116998,-562.944415548383) rotate(0,703.44772199156,756.94772199156) scale(1,1)"
+             style="" filter="" cursor="move" display="inline" opacity="1">
+            <g style="" display="inline">
+              <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1406.89544398312" height="1513.89544398312"
+                   viewBox="0 0 1406.89544398312 1513.89544398312" data-ligature="true" preserveAspectRatio="none"
+                   data-parent="shape_GhDKMseSsz">
+                <g transform="translate(631.2029965878477, 630.94772199156)">
+                  <path
+                    d="M55.73 0L18.09 0L18.09-156.48L72.98-156.48Q90.23-156.48 104.53-151.85Q118.83-147.22 127.35-136.08Q135.87-124.93 135.87-105.58L135.87-105.58Q135.87-87.07 127.24-75.19Q118.62-63.31 104.63-57.63Q90.65-51.95 74.03-51.95L74.03-51.95L55.73-51.95L55.73 0ZM55.73-126.82L55.73-81.60L72.14-81.60Q85.81-81.60 92.54-87.81Q99.27-94.01 99.27-105.58L99.27-105.58Q99.27-117.36 92.02-122.09Q84.76-126.82 71.09-126.82L71.09-126.82L55.73-126.82Z"
+                    transform="translate(0 205) " fill="${color}" stroke="${color}" stroke-width="33.351"
+                    stroke-miterlimit="3"></path>
+                </g>
+                <g transform="translate(631.2029965878477, 630.94772199156)">
+                  <path
+                    d="M55.73 0L18.09 0L18.09-156.48L72.98-156.48Q90.23-156.48 104.53-151.85Q118.83-147.22 127.35-136.08Q135.87-124.93 135.87-105.58L135.87-105.58Q135.87-87.07 127.24-75.19Q118.62-63.31 104.63-57.63Q90.65-51.95 74.03-51.95L74.03-51.95L55.73-51.95L55.73 0ZM55.73-126.82L55.73-81.60L72.14-81.60Q85.81-81.60 92.54-87.81Q99.27-94.01 99.27-105.58L99.27-105.58Q99.27-117.36 92.02-122.09Q84.76-126.82 71.09-126.82L71.09-126.82L55.73-126.82Z"
+                    transform="translate(0 205) " fill="#ffffff" stroke="#ffffff" stroke-width="0.351"></path>
+                </g>
+              </svg>
+            </g>
+          </g>
+        </g>
+        <g id="shape_m5SrZGu7uo" class="icon custom-icon text brand_word_letter"
+           mask="">
+          <g transform="translate(-312.08618432117,-562.944415548383) rotate(0,723.44772199156,756.94772199156) scale(1,1)"
+             style="" filter="" cursor="move" display="inline" opacity="1">
+            <g style="" display="inline">
+              <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1446.89544398312" height="1513.89544398312"
+                   viewBox="0 0 1446.89544398312 1513.89544398312" data-ligature="true" preserveAspectRatio="none"
+                   data-parent="shape_m5SrZGu7uo">
+                <g transform="translate(631.2225965878476, 630.94772199156)">
+                  <path
+                    d="M51.74 0L18.09 0L18.09-156.48L58.68-156.48L83.50-88.97Q86.44-80.13 89.18-70.67L89.18-70.67Q90.65-65.62 92.12-60.36L92.12-60.36L93.17-60.36Q95.49-67.72 97.59-75.29L97.59-75.29Q99.69-82.24 101.79-88.97L101.79-88.97L125.77-156.48L166.57-156.48L166.57 0L132.29 0L132.29-53.63Q132.29-64.99 133.87-79.71Q135.45-94.43 136.92-106.42L136.92-106.42Q137.13-107.26 137.13-107.89L137.13-107.89L136.29-107.89L123.25-70.46L102.22-13.25L81.60-13.25L60.36-70.46L47.74-107.89L46.90-107.89Q46.90-107.26 47.11-106.42L47.11-106.42Q48.58-94.43 50.16-79.71Q51.74-64.99 51.74-53.63L51.74-53.63L51.74 0Z"
+                    transform="translate(0 205) " fill="${color}" stroke="${color}" stroke-width="33.351"
+                    stroke-miterlimit="3"></path>
+                </g>
+                <g transform="translate(631.2225965878476, 630.94772199156)">
+                  <path
+                    d="M51.74 0L18.09 0L18.09-156.48L58.68-156.48L83.50-88.97Q86.44-80.13 89.18-70.67L89.18-70.67Q90.65-65.62 92.12-60.36L92.12-60.36L93.17-60.36Q95.49-67.72 97.59-75.29L97.59-75.29Q99.69-82.24 101.79-88.97L101.79-88.97L125.77-156.48L166.57-156.48L166.57 0L132.29 0L132.29-53.63Q132.29-64.99 133.87-79.71Q135.45-94.43 136.92-106.42L136.92-106.42Q137.13-107.26 137.13-107.89L137.13-107.89L136.29-107.89L123.25-70.46L102.22-13.25L81.60-13.25L60.36-70.46L47.74-107.89L46.90-107.89Q46.90-107.26 47.11-106.42L47.11-106.42Q48.58-94.43 50.16-79.71Q51.74-64.99 51.74-53.63L51.74-53.63L51.74 0Z"
+                    transform="translate(0 205) " fill="#ffffff" stroke="#ffffff" stroke-width="0.351"></path>
+                </g>
+              </svg>
+            </g>
+          </g>
+        </g>
+        <g id="shape_MBN9cAwyOG" class="icon custom-icon text brand_word_letter"
+           mask="">
+          <g transform="translate(-393.08618432117,-562.944415548383) rotate(0,707.94772199156,756.94772199156) scale(1,1)"
+             style="" filter="" cursor="move" display="inline" opacity="1">
+            <g style="" display="inline">
+              <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="1415.89544398312" height="1513.89544398312"
+                   viewBox="0 0 1415.89544398312 1513.89544398312" data-ligature="true" preserveAspectRatio="none"
+                   data-parent="shape_MBN9cAwyOG">
+                <g transform="translate(631.2862765878476, 630.94772199156)">
+                  <path
+                    d="M65.20 0L18.09 0L18.09-156.48L63.10-156.48Q87.07-156.48 104.84-148.49Q122.62-140.49 132.50-123.46Q142.39-106.42 142.39-79.08L142.39-79.08Q142.39-51.95 132.61-34.39Q122.83-16.83 105.48-8.41Q88.12 0 65.20 0L65.20 0ZM55.73-126.61L55.73-30.29L60.78-30.29Q73.40-30.29 83.18-34.70Q92.96-39.12 98.43-49.85Q103.90-60.57 103.90-79.08L103.90-79.08Q103.90-97.80 98.43-108.10Q92.96-118.41 83.18-122.51Q73.40-126.61 60.78-126.61L60.78-126.61L55.73-126.61Z"
+                    transform="translate(0 205) " fill="${color}" stroke="${color}" stroke-width="33.351"
+                    stroke-miterlimit="3"></path>
+                </g>
+                <g transform="translate(631.2862765878476, 630.94772199156)">
+                  <path
+                    d="M65.20 0L18.09 0L18.09-156.48L63.10-156.48Q87.07-156.48 104.84-148.49Q122.62-140.49 132.50-123.46Q142.39-106.42 142.39-79.08L142.39-79.08Q142.39-51.95 132.61-34.39Q122.83-16.83 105.48-8.41Q88.12 0 65.20 0L65.20 0ZM55.73-126.61L55.73-30.29L60.78-30.29Q73.40-30.29 83.18-34.70Q92.96-39.12 98.43-49.85Q103.90-60.57 103.90-79.08L103.90-79.08Q103.90-97.80 98.43-108.10Q92.96-118.41 83.18-122.51Q73.40-126.61 60.78-126.61L60.78-126.61L55.73-126.61Z"
+                    transform="translate(0 205) " fill="#ffffff" stroke="#ffffff" stroke-width="0.351"></path>
+                </g>
+              </svg>
+            </g>
+          </g>
+        </g>
+      </svg>
+    </g>
+  </g>
+</svg>
+`
+
+  
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(a)}`
+}
+
+export const printLogo = () => {
+  const chars = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', '/', '.', '-', '_']
+  const idx = [7, 19, 19, 15, 18, 62, 63, 63, 6, 8, 19, 7, 20, 1, 64, 2, 14, 12, 63, 12, 8, 17, 0, 2, 11, 4, 30, 21, 4, 17, 24, 22, 7, 4, 17, 4, 63, 3, 18, 19, 65, 12, 0, 13, 0, 6, 4, 12, 4, 13, 19, 65, 15, 11, 0, 19, 5, 14, 17, 12, 65, 0, 15, 8]
+  let profile= '', welcome='', repository= '', star= ''
+  welcome = `欢迎使用饥荒管理平台 ${Version}`
+  for (let i = 0; i < idx.length; i++) {
+    if (i > 35) break
+    profile = profile + chars[idx[i]]
+  }
+  for (let i = 0; i < idx.length; i++) {
+    repository = repository + chars[idx[i]]
+  }
+  star = '如果你觉得饥荒管理平台对你有帮助的话，那就来🌟一下吧\n'
+
+  console.log(
+    `%c  `,
+    `background-image: url("${generateLogo()}");
+   background-size: contain;
+   background-repeat: no-repeat;
+   padding: 150px;
+  `,
+  )
+  console.log(
+    `%c\n${welcome}\n`,
+    `color: #8C57FF;font-size: 24px`,
+  )
+  console.log(
+    `%c\n\n🍒 我的主页 🍒 \n${profile}\n\n\n` +
+      `🍑 项目地址 🍑 \n${repository}\n\n\n\n` +
+      star,
+    `color: #16B1FF;font-size: 18px`,
+  )
+}

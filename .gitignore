@@ -15,3 +15,11 @@ manual_update.sh
 manual_install_darwin.sh
 manual_update_darwin.sh
 AGENTS_WORK.md
+.gocache/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-lite/
+frontend/.pnpm*
+*.tgz
+SHA256SUMS
+SHA256SUMS.txt

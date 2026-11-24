@@ -1,0 +1,334 @@
+<template>
+  <v-tabs
+    v-model="activeTab"
+    color="primary"
+    align-tabs="start"
+    show-arrows
+  >
+    <v-tab value="local">
+      {{ t('tools.backup.localTab') }}
+    </v-tab>
+    <v-tab value="cloud">
+      {{ t('cloud.archives.tab') }}
+    </v-tab>
+  </v-tabs>
+  <v-tabs-window
+    v-model="activeTab"
+    class="mt-2"
+  >
+    <v-tabs-window-item value="local">
+      <check
+        :category="['game', 'room']"
+        :other-height="otherHeight + 48"
+      >
+        <v-sheet
+          border
+          rounded
+        >
+          <v-data-table
+            v-model="selectedFiles"
+            show-select
+            return-object
+            :headers="headers"
+            :items="backupFiles"
+            :loading="getBackupFilesLoading"
+          >
+            <template #loading>
+              <v-skeleton-loader type="table-row@10" />
+            </template>
+            <template #top>
+              <v-toolbar flat>
+                <v-toolbar-title>
+                  <v-icon
+                    icon="ri-save-2-line"
+                    start
+                  />
+                  <span v-if="!mobile">{{ t('tools.backup.title') }}</span>
+                </v-toolbar-title>
+                <v-btn
+                  prepend-icon="ri-add-line"
+                  color="success"
+                  :loading="createBackupLoading"
+                  @click="createBackup"
+                >
+                  {{ t('tools.backup.backup') }}
+                </v-btn>
+                <v-btn
+                  prepend-icon="ri-delete-bin-5-line"
+                  color="error"
+                  :disabled="selectedFiles.length===0"
+                  :loading="singleDeleteLoading"
+                  @click="multiDeleteBackup"
+                >
+                  {{ t('tools.backup.multiDelete') }}
+                </v-btn>
+                <v-btn
+                  v-if="!mobile"
+                  prepend-icon="ri-refresh-line"
+                  :loading="getBackupFilesLoading"
+                  color="default"
+                  @click="getBackupFiles"
+                >
+                  {{ t('platform.user.table.refresh') }}
+                </v-btn>
+              </v-toolbar>
+            </template>
+            <template #item.gameName="{ value }">
+              <v-chip
+                label
+                color="primary"
+              >
+                {{ value }}
+              </v-chip>
+            </template>
+            <template #item.cycles="{ value }">
+              <v-chip
+                label
+                color="info"
+              >
+                {{ value }}
+              </v-chip>
+            </template>
+            <template #item.size="{ value }">
+              <v-chip
+                label
+                color="success"
+              >
+                {{ formatBytes(value) }}
+              </v-chip>
+            </template>
+            <template #item.timestamp="{ value }">
+              <v-chip
+                label
+                color="default"
+              >
+                {{ timestamp2time(value) }}
+              </v-chip>
+            </template>
+            <template #item.actions="{ item }">
+              <v-btn
+                color="info"
+                append-icon="ri-arrow-drop-down-line"
+                variant="text"
+                :loading="item.actionButtonLoading"
+              >
+                {{ t('tools.backup.actions') }}
+                <v-menu activator="parent">
+                  <v-list>
+                    <v-list-item
+                      class="text-success"
+                      @click="restore(item)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-device-recover-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('tools.backup.restore') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-info"
+                      @click="downloadBackup(item)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-download-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('tools.backup.download') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                      class="text-error"
+                      @click="deleteBackup(item)"
+                    >
+                      <template #prepend>
+                        <v-icon
+                          icon="ri-delete-bin-line"
+                          size="22"
+                        />
+                      </template>
+                      <v-list-item-title>
+                        {{ t('tools.backup.delete') }}
+                      </v-list-item-title>
+                    </v-list-item>
+                  </v-list>
+                </v-menu>
+              </v-btn>
+            </template>
+          </v-data-table>
+        </v-sheet>
+      </check>
+    </v-tabs-window-item>
+    <v-tabs-window-item value="cloud">
+      <cloud-archive-panel v-if="activeTab === 'cloud'" />
+    </v-tabs-window-item>
+  </v-tabs-window>
+</template>
+
+<script setup>
+import toolsApi from "@/api/tools.js"
+import useGlobalStore from "@store/global.js"
+import { useI18n } from "vue-i18n"
+import { debounce, formatBytes, getToken, timestamp2time } from "@/utils/tools.js"
+import { showSnackbar } from "@/utils/snackbar.js"
+import { useDisplay } from "vuetify/framework"
+import useUserStore from "@store/user.js"
+import { ApiVersion } from "@/config/index.js"
+import CloudArchivePanel from "@/components/cloud/CloudArchivePanel.vue"
+
+const globalStore = useGlobalStore()
+const userStore = useUserStore()
+const { t } = useI18n()
+const { mobile } = useDisplay()
+const windowHeight = ref(window.innerHeight)
+const otherHeight = 150
+const activeTab = ref('local')
+const getBackupFilesLoading = ref(false)
+const backupFiles = ref([])
+
+const getBackupFiles = () => {
+  if (globalStore.room.id === 0) return
+  getBackupFilesLoading.value = true
+
+  const reqForm = {
+    roomID: globalStore.room.id,
+  }
+
+  toolsApi.backup.get(reqForm).then(response => {
+    backupFiles.value = response.data.map(item => ({ ...item, actionButtonLoading: false }))
+    backupFiles.value.sort((a, b) => b.timestamp - a.timestamp)
+  }).finally(() => {
+    getBackupFilesLoading.value = false
+  })
+}
+
+const selectedFiles = ref([])
+
+const headers = [
+  { key: 'gameName', title: t('tools.backup.gameName') },
+  { key: 'cycles', title: t('tools.backup.cycles') },
+  { key: 'size', title: t('tools.backup.size') },
+  { key: 'timestamp', title: t('tools.backup.timestamp') },
+  { key: 'actions', title: t('tools.backup.actions') },
+]
+
+const createBackupLoading = ref(false)
+
+const createBackup = () => {
+  createBackupLoading.value = true
+
+  const reqForm = {
+    roomID: globalStore.room.id,
+  }
+
+  toolsApi.backup.post(reqForm).then(response => {
+    getBackupFiles()
+    showSnackbar(response.message)
+  }).finally(() => {
+    createBackupLoading.value = false
+  })
+}
+
+const singleDeleteLoading = ref(false)
+
+const deleteBackup = item => {
+  singleDeleteLoading.value = true
+  item.actionButtonLoading = true
+
+  const reqForm = {
+    roomID: globalStore.room.id,
+    filenames: [item.fileName],
+  }
+
+  toolsApi.backup.delete(reqForm).then(response => {
+    getBackupFiles()
+    showSnackbar(t('tools.backup.deleteMessage1') + response.data + t('tools.backup.deleteMessage2'))
+  }).finally(() => {
+    singleDeleteLoading.value = false
+    item.actionButtonLoading = false
+  })
+}
+
+const multiDeleteBackup = () => {
+  singleDeleteLoading.value = true
+  selectedFiles.value.forEach(item => { item.actionButtonLoading = true })
+
+  const reqForm = {
+    roomID: globalStore.room.id,
+    filenames: selectedFiles.value.map(item => item.fileName),
+  }
+
+  toolsApi.backup.delete(reqForm).then(response => {
+    getBackupFiles()
+    selectedFiles.value = []
+    showSnackbar(t('tools.backup.deleteMessage1') + response.data + t('tools.backup.deleteMessage2'))
+  }).finally(() => {
+    singleDeleteLoading.value = false
+    selectedFiles.value.forEach(item => { item.actionButtonLoading = false })
+  })
+}
+
+const restoreLoading = ref(false)
+
+const restore = item => {
+  item.actionButtonLoading = true
+  restoreLoading.value = true
+
+  const reqForm = {
+    roomID: globalStore.room.id,
+    filename: item.fileName,
+  }
+
+  toolsApi.backup.restore.post(reqForm).then(response => {
+    showSnackbar(response.message)
+  }).finally(() => {
+    restoreLoading.value = false
+    item.actionButtonLoading = false
+  })
+}
+
+const downloadBackup = item => {
+  item.actionButtonLoading = true
+
+  const reqForm = {
+    roomID: globalStore.room.id,
+    filename: item.fileName,
+    token: getToken(),
+  }
+
+  // 使用浏览器底的下载管理器
+  const queryString = new URLSearchParams(reqForm).toString()
+  const link = document.createElement('a')
+
+  link.href = "/" + ApiVersion + "/tools/backup/download?" + queryString.toString()
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  item.actionButtonLoading = false
+}
+
+const handleResize = debounce(() => {
+  windowHeight.value = window.innerHeight
+}, 200)
+
+const calculateContainerSize = () => {
+  // 64(navbar) + 37(tab header) + 20(card padding) + 16(card padding) = 137
+
+  return Math.max(2, Math.floor(windowHeight.value - otherHeight))
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+  getBackupFiles()
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+</script>
+

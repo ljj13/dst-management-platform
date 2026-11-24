@@ -1,0 +1,140 @@
+import http from "@/utils/axios"
+
+export default {
+  backup: {
+    url: `/tools/backup`,
+    get: async function (data) {
+      return await http.get(this.url, data)
+    },
+    post: async function (data) {
+      return await http.post(this.url, data)
+    },
+    delete: async function (data) {
+      return await http.delete(this.url, data)
+    },
+    restore: {
+      url: `/tools/backup/restore`,
+      post: async function (data) {
+        return await http.post(this.url, data)
+      },
+    },
+    download: {
+      url: `/tools/backup/download`,
+      download: async function (data, saveName) {
+        return await http.download(this.url, data, saveName)
+      },
+    },
+  },
+  announce: {
+    url: `/tools/announce`,
+    get: async function (data) {
+      return await http.get(this.url, data)
+    },
+    put: async function (data) {
+      return await http.put(this.url, data)
+    },
+  },
+  map: {
+    url: `/tools/map`,
+    get: async function (data) {
+      return await http.get(this.url, data)
+    },
+    players: {
+      url: `/tools/map/players`,
+      get: async function (data) {
+        return await http.get(this.url, data)
+      },
+    },
+  },
+  lobby: {
+    search: {
+      url: `/tools/lobby/search`,
+      post: async function (data) {
+        return await http.post(this.url, data)
+      },
+    },
+    detail: {
+      url: `/tools/lobby/detail`,
+      post: async function (data) {
+        return await http.post(this.url, data)
+      },
+    },
+  },
+  token: {
+    url: `/tools/token`,
+    post: async function (data) {
+      return await http.post(this.url, data)
+    },
+  },
+  snapshot: {
+    url: `/tools/snapshot`,
+    get: async function (data) {
+      return await http.get(this.url, data)
+    },
+    delete: async function (data) {
+      return await http.delete(this.url, data)
+    },
+  },
+  tmi: {
+    category: {
+      url: `/tools/tmi/category`,
+      get: async function (data) {
+        return await http.get(this.url, data)
+      },
+      items: {
+        url: `/tools/tmi/category/items`,
+        get: async function (data) {
+          return await http.get(this.url, data)
+        },
+      },
+    },
+    console: {
+      url: `/tools/tmi/console`,
+      post: async function (data) {
+        return await http.post(this.url, data)
+      },
+    },
+  },
+  aichat: {
+    setting: {
+      url: `/tools/aichat/setting`,
+      get: async function (data) {
+        return await http.get(this.url, data)
+      },
+      put: async function (data) {
+        return await http.put(this.url, data)
+      },
+      base: {
+        url: `/tools/aichat/setting/base`,
+        get: async function (data) {
+          return await http.get(this.url, data)
+        },
+        put: async function (data) {
+          return await http.put(this.url, data)
+        },
+      },
+    },
+    keyword: {
+      rebuild: {
+        url: `/tools/aichat/keyword/rebuild`,
+        post: async function (data) {
+          return await http.post(this.url, data)
+        },
+      },
+    },
+    embedding: {
+      rebuild: {
+        url: `/tools/aichat/embedding/rebuild`,
+        post: async function (data) {
+          return await http.post(this.url, data)
+        },
+      },
+      cancel: {
+        url: `/tools/aichat/embedding/cancel`,
+        post: async function (data) {
+          return await http.post(this.url, data)
+        },
+      },
+    },
+  },
+}

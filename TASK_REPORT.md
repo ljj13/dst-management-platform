@@ -3,7 +3,8 @@
 - 生成时间：2026-11-24
 - Fork：<https://github.com/ljj13/dst-management-platform>
 - 分支：`feat/native-monitor`
-- 最终提交：`9d72f3cfef32acec76dedfe567ffbb7b0d01245f`
+- 功能与发布提交：`9d72f3cfef32acec76dedfe567ffbb7b0d01245f`
+- 报告提交：本文件所在的分支 HEAD
 - 发布标签：`v3.2.3-foghub.1`
 - 生产部署：**未执行**（未获得替换运行中 DMP 的授权）
 

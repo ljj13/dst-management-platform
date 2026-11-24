@@ -385,6 +385,7 @@ Release：<https://github.com/ljj13/dst-management-platform/releases/tag/v3.2.3-
 9. **CI 仅 Linux amd64**：没有 macOS/ARM 发布矩阵；任务要求的生产目标为 Linux amd64。
 10. **Docker 未纳入必需发布路径**：避免 Docker 构建阻断 Linux amd64；原上游 GHCR 硬编码已移除。
 11. **Release 的 latest 语义**：`run.sh` 使用 GitHub `/releases/latest`；如果未来把定制版标记为 prerelease，latest 可能指向旧版本，需要在发布流程中保持非 prerelease 或改用 releases 列表筛选。
+12. **网络字段大小写**：`upMbps` 与 `upMBps` 仅大小写不同，JSON/JavaScript 合法且数值分别正确；PowerShell `ConvertFrom-Json` 这类大小写不敏感解析器会把二者视为同名，建议这类客户端改用 `upBps`/`downBps`。
 
 ## 11. 关键文件索引
 

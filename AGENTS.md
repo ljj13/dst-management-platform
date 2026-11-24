@@ -6,13 +6,13 @@
 
 DMP（Don't Starve Together Management Platform）是一个饥荒联机版服务器管理平台。本仓库是 Monorepo，包含 Go 后端与 `frontend/` 下的 Vue 3 前端源码；前端构建产物复制到 `embedFS/dist/` 后嵌入二进制。同一份后端代码用 `lite` 构建标签还会产出精简版后端，其前端以磁盘目录分发。
 
-- Go 工具链：`go.mod` 指定 Go 1.27.4；模块路径为 `dst-management-platform-api`。升级 Go 版本时同步 `go.mod`、`.github/workflows/go.yml` 与 `docker/Dockerfile` 中的 `golang` 版本。
+- Go 工具链：`go.mod` 指定 Go 1.27.4；模块路径为 `dst-management-platform-api`。升级 Go 版本时同步 `go.mod`、`.github/workflows/build.yml` 与 `docker/Dockerfile` 中的 `golang` 版本。
 - 主程序技术栈：HTTP 用 Gin，数据访问用 GORM + SQLite，任务调度用 gocron，日志用 Zap。
 - 仓库用构建标签产出两个可执行文件：
   - 主程序 `main.go`（`//go:build !lite`）调用 `server.Run()`，功能完整。
   - 精简版 `lite.go`（`//go:build lite`）调用 `lite.Run()`，只用标准库 `net/http` 和 JSON 单文件数据库，不引入 Gin/GORM/Zap，目标内存 8-10MB。
 - `main.go` 安装 panic 捕获与日志刷盘钩子（`logger.HandlePanic`、`logger.Sync`）后调用 `server.Run()`；启动参数在 `server/flags.go`，控制台命令在 `server/console.go`，初始化、依赖装配和路由注册位于 `server/`。`lite/` 有自己独立的启动参数、路由和工具包，不复用这些包。
-- API 版本取自 `constant.ApiVersion`，平台版本取自 `constant/system.go` 中的 `constant.Version`；发版时更新该常量，推送 `v*` tag 会触发 `.github/workflows/go.yml` 构建二进制与镜像。`lite/api` 使用自己的 `apiPrefix`（当前 `/v3`），改接口版本时两处都要同步。
+- API 版本取自 `constant.ApiVersion`，平台版本取自 `constant/system.go` 中的 `constant.Version`；发版时更新该常量，推送 `v*` tag 会触发 `.github/workflows/release.yml`，复用 `build.yml` 构建并发布 Linux amd64 二进制。`lite/api` 使用自己的 `apiPrefix`（当前 `/v3`），改接口版本时两处都要同步。
 - 运行环境主要面向 Linux，也支持 macOS；依赖 `screen`、SteamCMD、DST 文件与进程等外部资源。
 - 前端源码在 `frontend/`，由 `pnpm run build` 生成 `frontend/dist/`，再复制到 `embedFS/dist/` 并通过 `go:embed` 嵌入后端二进制；Lite 前端由 `pnpm run build:lite` 生成 `frontend/dist-lite/`，复制到 `lite/dist-lite/` 后以磁盘目录分发。
 - 上游基线与精确 commit 记录在 `UPSTREAM.md`；前端 LICENSE 保留在 `frontend/LICENSE`。
@@ -39,7 +39,7 @@ DMP（Don't Starve Together Management Platform）是一个饥荒联机版服务
 - `docs/`：项目文档及图片资源；`docs/error-codes.md` 是业务错误码表，由 `cmd/codedoc` 生成，不要手工编辑。
 - `cmd/codedoc/`：错误码文档生成器兼校验器。通过 `make codes` / `make codes-verify` 调用（等价于 `go run ./cmd/codedoc [-verify]`）；`-verify` 校验码唯一、号段正确、词条存在、无死码，并检查 `docs/error-codes.md` 是否已同步。
 - `.agents/skills/`：本仓库的 agent 技能说明（`frontend-project`、`no-test`、`sandbox`、`zh-cn`），按任务类型加载。
-- `.github/`：Issue 模板与 CI/发布流水线。`workflows/ci.yml` 在 push/PR/dispatch 上安装前端依赖、构建前端、执行 Go 格式/错误码/vet 检查并构建 Linux amd64 二进制；`workflows/release.yml` 在 `v*` tag 上复用构建逻辑，发布 `dmp.tgz`、`dmp-lite.tgz`、`SHA256SUMS`。Docker 镜像为独立可选工作流，不阻断原生二进制发布。
+- `.github/`：Issue 模板与 CI/发布流水线。`workflows/ci.yml` 在 push/PR/dispatch 上安装前端依赖、构建前端、执行 Go 格式/错误码/vet 检查并构建 Linux amd64 二进制；`workflows/release.yml` 在 `v*` tag 上复用构建逻辑，发布 `dmp.tgz`、`dmp-lite.tgz`、`SHA256SUMS`。默认发布链路不构建 Docker 镜像，也不让 Docker 阻断 Linux amd64 产物。
 - `docker/`、`run.sh`：发布和最终用户部署，不是日常开发入口。
 
 ## 常用命令
@@ -138,7 +138,7 @@ go run . -bind 8080 -dbpath ./data -level debug
 - `lite/api/static.go` 从可执行文件同级的 `dist-lite/` 提供前端：路径先 `path.Clean` 再映射磁盘，`/v3` 不参与前端 `index.html` 回退，目录不提供列表。改动静态路由时保留这些防护。
 - 世界名在精简版中同样是 screen 会话名（`DMP_LITE_` 前缀）和集群子目录名；日志接口只接受数据库中已配置的世界名，新增路径拼接继续走 `utils.WorldLogPath`/`WorldChatLogPath` 的单级名校验。
 - 精简版刻意控制内存：日志用 `ReadLastLines` 尾读并限制单次读取量，静态资源走磁盘而非 `go:embed`，日志用标准输出而非 Zap。新代码不要引入整文件读取、全量索引或重依赖。
-- `update` 命令调用工作目录的 `manual_update.sh`；调整安装/更新脚本或 lite 打包内容时，同步 `.github/workflows/go.yml` 的 `build-lite` 步骤。
+- `update` 命令调用工作目录的 `manual_update.sh`；调整安装/更新脚本或 lite 打包内容时，同步 `.github/workflows/build.yml` 的 build-lite 步骤。
 
 ### 数据库与调度器
 

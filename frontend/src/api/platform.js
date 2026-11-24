@@ -49,6 +49,24 @@ export default {
       return await http.get(this.url, data)
     },
   },
+  monitorCurrent: {
+    url: `/platform/monitor/current`,
+    get: async function () {
+      return await http.get(this.url)
+    },
+  },
+  monitorHistory: {
+    url: `/platform/monitor/history`,
+    get: async function (data) {
+      return await http.get(this.url, data)
+    },
+  },
+  monitorProcesses: {
+    url: `/platform/monitor/processes`,
+    get: async function (data) {
+      return await http.get(this.url, data)
+    },
+  },
   globalSettings: {
     url: `/platform/global_settings`,
     get: async function (data) {

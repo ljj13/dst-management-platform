@@ -26,6 +26,7 @@ export default {
     return {
       isActivat: false,
       myChart: null,
+      resizeHandler: null,
     }
   },
   computed: {
@@ -37,19 +38,33 @@ export default {
     option: {
       deep: true,
       handler (v) {
-        unwarp(this.myChart).setOption(v)
+        if (this.myChart) {
+          unwarp(this.myChart).setOption(v)
+        }
       },
     },
   },
   activated(){
     if(!this.isActivat){
       this.$nextTick(() => {
-        this.myChart.resize()
+        if (this.myChart) {
+          this.myChart.resize()
+        }
       })
     }
   },
   deactivated(){
     this.isActivat = false
+  },
+  beforeUnmount() {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler)
+      this.resizeHandler = null
+    }
+    if (this.myChart) {
+      this.myChart.dispose()
+      this.myChart = null
+    }
   },
   mounted(){
     this.isActivat = true
@@ -62,17 +77,25 @@ export default {
       var myChart = echarts.init(this.$refs.scEcharts, 'T', { renderer: 'svg' })
       myChart.setOption(this.myOptions)
       this.myChart = myChart
-      window.addEventListener('resize', () => myChart.resize())
+      this.resizeHandler = () => {
+        if (this.myChart) {
+          this.myChart.resize()
+        }
+      }
+      window.addEventListener('resize', this.resizeHandler)
     },
     redraw(option) {
-      this.myChart.dispose()
+      if (this.myChart) {
+        this.myChart.dispose()
+      }
       var myChart = echarts.init(this.$refs.scEcharts, 'T', { renderer: 'svg' })
       myChart.setOption(option)
       this.myChart = myChart
-      window.addEventListener('resize', () => myChart.resize())
     },
     setOption(option) {
-      this.myChart.setOption(option)
+      if (this.myChart) {
+        this.myChart.setOption(option)
+      }
     },
   },
 }

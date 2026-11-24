@@ -1,6 +1,6 @@
 {
   "name": "dst-management-platform-web",
-  "version": "3.2.3",
+  "version": "3.2.3-foghub.1",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.3",

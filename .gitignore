@@ -16,6 +16,12 @@ manual_install_darwin.sh
 manual_update_darwin.sh
 AGENTS_WORK.md
 .gocache/
+.gomodcache/
+.tools/
+.smoke-data/
+.smoke-*.log
+dmp-linux
+*.exe~
 frontend/node_modules/
 frontend/dist/
 frontend/dist-lite/

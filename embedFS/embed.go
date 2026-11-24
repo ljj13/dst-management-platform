@@ -8,6 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 )
 
@@ -25,7 +26,7 @@ var Shell embed.FS
 func CopyEmbeddedFiles(sourceFS embed.FS, sourceRoot, targetDir, targetName string, includeFiles ...string) error {
 	// 直接构建完整的源文件路径
 	for _, filename := range includeFiles {
-		sourcePath := filepath.Join(sourceRoot, filename)
+		sourcePath := path.Join(sourceRoot, filename)
 
 		// 读取嵌入文件
 		data, err := sourceFS.ReadFile(sourcePath)

@@ -19,6 +19,7 @@ import (
 	"dst-management-platform-api/embedFS"
 	"dst-management-platform-api/logger"
 	"dst-management-platform-api/middleware"
+	"dst-management-platform-api/monitor"
 	"dst-management-platform-api/scheduler"
 	cloudsvc "dst-management-platform-api/service/cloud"
 	dashboardsvc "dst-management-platform-api/service/dashboard"
@@ -99,6 +100,10 @@ func Run() {
 
 	// 开启定时任务
 	scheduler.Start(roomDao, worldDao, roomSettingDao, globalSettingDao, uidMapDao)
+
+	// 原生监控采集器：每 5 秒一次，进程内单例，所有页面共享
+	monitor.Start()
+	defer monitor.Stop()
 
 	r := gin.New()
 

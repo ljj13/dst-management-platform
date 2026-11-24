@@ -1,0 +1,190 @@
+name: build
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and verify Linux amd64 packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+          run_install: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint frontend
+        working-directory: frontend
+        run: pnpm run lint
+
+      - name: Build standard frontend
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: Build lite frontend
+        working-directory: frontend
+        run: pnpm run build:lite
+
+      - name: Embed frontend assets
+        run: |
+          node scripts/copy-dir.mjs frontend/dist embedFS/dist
+          node scripts/copy-dir.mjs frontend/dist-lite lite/dist-lite
+
+      - name: Validate generated frontend assets
+        run: |
+          set -euo pipefail
+          test -s embedFS/dist/index.html
+          test -s lite/dist-lite/index.html
+          test "$(find embedFS/dist/assets -maxdepth 1 -name '*.js' | wc -l)" -gt 10
+          grep -q 'assets/index-' embedFS/dist/index.html
+          grep -q 'assets/index-' lite/dist-lite/index.html
+          if grep -R --include='*.js' -l 'localhost:18080' embedFS/dist; then
+            echo "unexpected local smoke address in production assets" >&2
+            exit 1
+          fi
+
+      - name: Check Go formatting
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l $(git ls-files '*.go'))"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Verify error code documentation
+        run: make codes-verify
+
+      - name: Vet standard and lite builds
+        run: |
+          go vet ./...
+          go vet -tags=lite ./...
+
+      - name: Build Linux amd64 binaries
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          set -euo pipefail
+          go build -trimpath -ldflags '-s -w' -v -o dmp .
+          go build -trimpath -ldflags '-s -w' -v -tags=lite -o dmp-lite .
+
+      - name: Package release assets
+        run: |
+          set -euo pipefail
+          tar -czf dmp.tgz dmp
+          mkdir -p lite-package
+          cp dmp-lite lite-package/
+          cp -r lite/dist-lite lite-package/dist-lite
+          cp embedFS/shell/manual_install.sh embedFS/shell/manual_update.sh lite-package/
+          cp lite/run.sh lite-package/run.sh
+          chmod 755 lite-package/dmp-lite lite-package/manual_install.sh lite-package/manual_update.sh lite-package/run.sh
+          tar -czf dmp-lite.tgz -C lite-package dmp-lite dist-lite manual_install.sh manual_update.sh run.sh
+          rm -rf lite-package
+          sha256sum dmp.tgz dmp-lite.tgz > SHA256SUMS
+
+      - name: Smoke test embedded UI and monitor API
+        run: |
+          set -euo pipefail
+          smoke_db="$RUNNER_TEMP/dmp-smoke"
+          ./dmp -bind 18080 -dbpath "$smoke_db" -level info >"$RUNNER_TEMP/dmp.log" 2>&1 &
+          dmp_pid=$!
+          trap 'kill "$dmp_pid" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:18080/ >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+
+          curl -fsS http://127.0.0.1:18080/ | grep -q 'id="app"'
+          metrics_asset="$(find embedFS/dist/assets -maxdepth 1 -name 'metrics-*.js' -printf '%f\n' | head -1)"
+          test -n "$metrics_asset"
+          curl -fsS "http://127.0.0.1:18080/assets/$metrics_asset" >/dev/null
+
+          register="$(curl -fsS -X POST http://127.0.0.1:18080/v3/user/register \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"ciadmin","nickname":"CI Admin","password":"CiPassword123!"}')"
+          test "$(printf '%s' "$register" | jq -r '.code')" = "200"
+
+          login="$(curl -fsS -X POST http://127.0.0.1:18080/v3/user/login \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"ciadmin","password":"CiPassword123!"}')"
+          token="$(printf '%s' "$login" | jq -r '.data')"
+          test -n "$token"
+          test "$token" != "null"
+
+          sleep 7
+          current="$(curl -fsS http://127.0.0.1:18080/v3/platform/monitor/current \
+            -H "X-DMP-TOKEN: $token")"
+          test "$(printf '%s' "$current" | jq -r '.code')" = "200"
+          test "$(printf '%s' "$current" | jq -r '.data.available')" = "true"
+          test "$(printf '%s' "$current" | jq -r '.data.snapshot.cpu.cores')" -ge 1
+          test "$(printf '%s' "$current" | jq -r '.data.snapshot.processes | length')" -gt 0
+          test "$(printf '%s' "$current" | jq -r '.data.snapshot.processes[0] | has("cmdline") or has("environment") | not')" = "true"
+
+          history="$(curl -fsS 'http://127.0.0.1:18080/v3/platform/monitor/history?range=15m' \
+            -H "X-DMP-TOKEN: $token")"
+          test "$(printf '%s' "$history" | jq -r '.code')" = "200"
+          test "$(printf '%s' "$history" | jq -r '.data.points | length')" -ge 1
+
+          processes="$(curl -fsS 'http://127.0.0.1:18080/v3/platform/monitor/processes?sort=memory&order=desc&limit=5' \
+            -H "X-DMP-TOKEN: $token")"
+          test "$(printf '%s' "$processes" | jq -r '.code')" = "200"
+          test "$(printf '%s' "$processes" | jq -r '.data.processes | length')" -le 5
+
+          create_user="$(curl -fsS -X POST http://127.0.0.1:18080/v3/user/base \
+            -H "X-DMP-TOKEN: $token" -H 'Content-Type: application/json' \
+            -d '{"username":"ciuser","nickname":"CI User","role":"user","password":"CiPassword123!","disabled":false,"roomCreation":false,"maxWorlds":0,"maxPlayers":0}')"
+          test "$(printf '%s' "$create_user" | jq -r '.code')" = "200"
+
+          user_login="$(curl -fsS -X POST http://127.0.0.1:18080/v3/user/login \
+            -H 'Content-Type: application/json' \
+            -d '{"username":"ciuser","password":"CiPassword123!"}')"
+          user_token="$(printf '%s' "$user_login" | jq -r '.data')"
+          denied="$(curl -fsS http://127.0.0.1:18080/v3/platform/monitor/current \
+            -H "X-DMP-TOKEN: $user_token")"
+          test "$(printf '%s' "$denied" | jq -r '.code')" = "2"
+
+          no_token="$(curl -fsS http://127.0.0.1:18080/v3/platform/monitor/current)"
+          test "$(printf '%s' "$no_token" | jq -r '.code')" = "420"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmp-linux-amd64
+          path: |
+            dmp.tgz
+            dmp-lite.tgz
+            SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
